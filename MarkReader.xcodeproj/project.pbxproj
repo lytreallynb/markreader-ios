@@ -12,6 +12,7 @@
 		0A59815184F049A25E9BA8AA /* MarkdownOutline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47C1AAEBCB97450DDD3E8AF9 /* MarkdownOutline.swift */; };
 		0B75851716883F2854868780 /* CodeBlockHighlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92ACE17498EA92219B57DC0D /* CodeBlockHighlighter.swift */; };
 		0F6322A5E55ACF14077F2B31 /* TranslationPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = E45335F110315EAA8494DAE5 /* TranslationPane.swift */; };
+		23EAF6CB77FFEDD3537DD13A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0DA572244E12F88672A02BCB /* Assets.xcassets */; };
 		2F1341D39AE6C616526C6C76 /* MarkdownSourceEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BA84E5E8885D73D794B188E /* MarkdownSourceEditor.swift */; };
 		37B9C8192975510E6CD6805E /* MarkdownHTMLRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A244C2851661400A1E1F14DD /* MarkdownHTMLRenderer.swift */; };
 		38FAEF3C43D75856E19E4C93 /* PreviewWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E63198CDFD074A7A33C7832D /* PreviewWebView.swift */; };
@@ -41,12 +42,14 @@
 		D46AF7DB0D775F4E8814046E /* MarkdownOutline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47C1AAEBCB97450DDD3E8AF9 /* MarkdownOutline.swift */; };
 		DBC6620ED80729A8D7B387D4 /* FileTreeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78552F75125B93DBC0B99DC3 /* FileTreeStore.swift */; };
 		DD11F3B6D95EE78D6E3C0ED1 /* RecentFilesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EA827818F043E6B2E930A85 /* RecentFilesStore.swift */; };
+		DEF10AD6242B6A391B324114 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0DA572244E12F88672A02BCB /* Assets.xcassets */; };
 		FAF8D207DC3D99E957252262 /* highlight.min.js in Resources */ = {isa = PBXBuildFile; fileRef = 80007869E243E3C25846B53A /* highlight.min.js */; };
 		FC65DB8772AF3D201C9813BF /* cmark-gfm in Frameworks */ = {isa = PBXBuildFile; productRef = 50820F1908A6ABF2A207DC7F /* cmark-gfm */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		05489F33655418A580A99659 /* hljs-github.min.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = "hljs-github.min.css"; sourceTree = "<group>"; };
+		0DA572244E12F88672A02BCB /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		1BA84E5E8885D73D794B188E /* MarkdownSourceEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownSourceEditor.swift; sourceTree = "<group>"; };
 		387597E07084C4FFF538EE94 /* ReaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderView.swift; sourceTree = "<group>"; };
 		47C1AAEBCB97450DDD3E8AF9 /* MarkdownOutline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownOutline.swift; sourceTree = "<group>"; };
@@ -102,6 +105,7 @@
 		503C4EB893D4A1998E5F6C35 /* MarkReader */ = {
 			isa = PBXGroup;
 			children = (
+				0DA572244E12F88672A02BCB /* Assets.xcassets */,
 				27B84C8F89A494FE42C61AE0 /* Resources */,
 				A7E8F472F277E51E93E989DF /* Sources */,
 			);
@@ -237,6 +241,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				23EAF6CB77FFEDD3537DD13A /* Assets.xcassets in Resources */,
 				FAF8D207DC3D99E957252262 /* highlight.min.js in Resources */,
 				65F725EB26DA4621A67943A8 /* hljs-github-dark.min.css in Resources */,
 				5CFACBA32ACD6B209A2389BD /* hljs-github.min.css in Resources */,
@@ -247,6 +252,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DEF10AD6242B6A391B324114 /* Assets.xcassets in Resources */,
 				AE7A02B833FE156F0FB6AD3B /* highlight.min.js in Resources */,
 				39E13CBD5C36B20AB5E6AA20 /* hljs-github-dark.min.css in Resources */,
 				B1BA9F34321DCF6E5BBF8277 /* hljs-github.min.css in Resources */,
@@ -311,7 +317,8 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.yutonglv.markreader;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yutonglv.inkdown;
+				PRODUCT_NAME = Inkdown;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -382,6 +389,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "MarkReader/Info-macOS.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -389,8 +397,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.yutonglv.markreader;
-				PRODUCT_NAME = MarkReader;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yutonglv.inkdown;
+				PRODUCT_NAME = Inkdown;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.9;
 			};
@@ -410,7 +418,8 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.yutonglv.markreader;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yutonglv.inkdown;
+				PRODUCT_NAME = Inkdown;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -488,6 +497,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = "MarkReader/Info-macOS.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -495,8 +505,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.yutonglv.markreader;
-				PRODUCT_NAME = MarkReader;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yutonglv.inkdown;
+				PRODUCT_NAME = Inkdown;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.9;
 			};
