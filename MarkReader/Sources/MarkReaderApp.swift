@@ -25,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 struct MarkReaderApp: App {
     @StateObject private var store = RecentFilesStore()
     @StateObject private var treeStore = FileTreeStore()
+    @StateObject private var outline = OutlineContext()
     #if os(macOS)
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     #endif
@@ -34,6 +35,7 @@ struct MarkReaderApp: App {
             HomeView()
                 .environmentObject(store)
                 .environmentObject(treeStore)
+                .environmentObject(outline)
         }
         #if os(macOS)
         .defaultSize(width: 1080, height: 800)

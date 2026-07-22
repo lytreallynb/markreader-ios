@@ -1,5 +1,17 @@
 import Foundation
 
+/// Shares the open document's headings between the reader and the sidebar,
+/// and carries the jump action back to the reader's preview.
+@MainActor
+final class OutlineContext: ObservableObject {
+    @Published var headings: [OutlineHeading] = []
+    var jumpHandler: ((Int) -> Void)?
+
+    func jump(toLine line: Int) {
+        jumpHandler?(line)
+    }
+}
+
 /// A heading in the document, used for the outline jump menu.
 struct OutlineHeading: Identifiable, Hashable {
     let level: Int

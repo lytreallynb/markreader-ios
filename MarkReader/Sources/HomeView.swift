@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct HomeView: View {
     @EnvironmentObject private var store: RecentFilesStore
     @EnvironmentObject private var treeStore: FileTreeStore
+    @EnvironmentObject private var outline: OutlineContext
 
     @State private var importerMode: ImporterMode?
     @State private var errorMessage: String?
@@ -98,20 +99,87 @@ struct HomeView: View {
         }
     }
 
+    /// Sidebar tree rows: folders, files, and, under the open file, its
+    /// headings as expandable children.
+    private struct SidebarItem: Identifiable, Hashable {
+        enum Kind: Hashable {
+            case folder
+            case file
+            case heading(level: Int, line: Int)
+        }
+
+        let id: String
+        let title: String
+        let kind: Kind
+        let url: URL
+        var children: [SidebarItem]?
+    }
+
+    private func sidebarItems(from nodes: [FileNode]) -> [SidebarItem] {
+        nodes.map { node in
+            if node.isDirectory {
+                return SidebarItem(
+                    id: node.url.path,
+                    title: node.name,
+                    kind: .folder,
+                    url: node.url,
+                    children: sidebarItems(from: node.children ?? [])
+                )
+            }
+            var children: [SidebarItem]?
+            if node.url == selectedURL, !outline.headings.isEmpty {
+                children = outline.headings.map { heading in
+                    SidebarItem(
+                        id: "\(node.url.path)#\(heading.line)",
+                        title: heading.title,
+                        kind: .heading(level: heading.level, line: heading.line),
+                        url: node.url,
+                        children: nil
+                    )
+                }
+            }
+            return SidebarItem(
+                id: node.url.path,
+                title: node.url.deletingPathExtension().lastPathComponent,
+                kind: .file,
+                url: node.url,
+                children: children
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func sidebarRow(for item: SidebarItem) -> some View {
+        switch item.kind {
+        case .folder:
+            Label(item.title, systemImage: "folder")
+                .lineLimit(1)
+                .selectionDisabled(true)
+        case .file:
+            Label(item.title, systemImage: "doc.text")
+                .lineLimit(1)
+                .tag(item.url)
+        case .heading(let level, let line):
+            Button {
+                outline.jump(toLine: line)
+            } label: {
+                Text(item.title)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .padding(.leading, CGFloat(max(0, level - 1)) * 10)
+            }
+            .buttonStyle(.plain)
+            .selectionDisabled(true)
+        }
+    }
+
     private var sidebar: some View {
         List(selection: $selectedURL) {
             if !treeStore.tree.isEmpty {
                 Section(treeStore.rootURL?.lastPathComponent ?? "Folder") {
-                    OutlineGroup(treeStore.tree, children: \.children) { node in
-                        Label(
-                            node.isDirectory
-                                ? node.name
-                                : node.url.deletingPathExtension().lastPathComponent,
-                            systemImage: node.isDirectory ? "folder" : "doc.text"
-                        )
-                        .lineLimit(1)
-                        .tag(node.url)
-                        .selectionDisabled(node.isDirectory)
+                    OutlineGroup(sidebarItems(from: treeStore.tree), children: \.children) { item in
+                        sidebarRow(for: item)
                     }
                 }
             }

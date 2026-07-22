@@ -27,6 +27,9 @@ struct ReaderView: View {
     }
 
     @AppStorage("reader.textSizeStep") private var textSizeStep: Int = 2
+    @AppStorage("reader.showsSource") private var showsSource = false
+
+    @EnvironmentObject private var outline: OutlineContext
 
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -95,6 +98,12 @@ struct ReaderView: View {
             previewController.onSelectionAction = { action, color, selection in
                 handleSelectionAction(action, color: color, selection: selection)
             }
+            outline.jumpHandler = { line in
+                if !showsSideBySide && mode == .write {
+                    mode = .preview
+                }
+                previewController.scrollToLine(line)
+            }
         }
         .onChange(of: text) { _, _ in
             scheduleRender()
@@ -141,8 +150,10 @@ struct ReaderView: View {
     private var panes: some View {
         if showsSideBySide {
             HStack(spacing: 0) {
-                editorPane
-                Divider()
+                if showsSource {
+                    editorPane
+                    Divider()
+                }
                 previewPane
                 if showsTranslation {
                     Divider()
@@ -210,8 +221,15 @@ struct ReaderView: View {
         }
 
         ToolbarItemGroup(placement: .primaryAction) {
+            if showsSideBySide {
+                Toggle(isOn: $showsSource) {
+                    Label("Show Source", systemImage: "chevron.left.forwardslash.chevron.right")
+                }
+                .keyboardShortcut("e", modifiers: .command)
+            }
+
             Menu {
-                ForEach(MarkdownOutline.headings(in: text)) { heading in
+                ForEach(outline.headings) { heading in
                     Button {
                         jump(to: heading)
                     } label: {
@@ -222,7 +240,7 @@ struct ReaderView: View {
             } label: {
                 Label("Outline", systemImage: "list.bullet.indent")
             }
-            .disabled(MarkdownOutline.headings(in: text).isEmpty)
+            .disabled(outline.headings.isEmpty)
 
             Menu {
                 ForEach(HighlightColor.allCases) { color in
@@ -511,6 +529,7 @@ struct ReaderView: View {
             try? await Task.sleep(nanoseconds: 120_000_000)
             guard !Task.isCancelled else { return }
             htmlBody = MarkdownHTMLRenderer.renderBody(from: text)
+            outline.headings = MarkdownOutline.headings(in: text)
         }
     }
 
@@ -553,6 +572,7 @@ struct ReaderView: View {
             text = loadedText
             originalText = loadedText
             htmlBody = MarkdownHTMLRenderer.renderBody(from: loadedText)
+            outline.headings = MarkdownOutline.headings(in: loadedText)
         case .failure(let error):
             loadError = error.localizedDescription
         case nil:
