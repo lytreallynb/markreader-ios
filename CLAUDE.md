@@ -1,6 +1,6 @@
-# MarkReader
+# Inkdown
 
-Native Markdown editor and reader for iOS and macOS. It opens files from iCloud Drive or the Files app, provides a highlighted source editor with live rendering, saves in place, and offers optional on-device Chinese and English translation on supported systems.
+Native Markdown editor and reader for iOS and macOS. The app is named Inkdown (bundle id com.yutonglv.inkdown, product name Inkdown); the repo and the Xcode target/scheme names remain MarkReader / MarkReaderMac. Release DMGs are built into dist/ (gitignored): build Release, then hdiutil create with the app plus an /Applications symlink. It opens files from iCloud Drive or the Files app, provides a highlighted source editor with live rendering, saves in place, and offers optional on-device Chinese and English translation on supported systems.
 
 ## Stack
 
