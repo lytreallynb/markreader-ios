@@ -107,7 +107,11 @@ struct HomeView: View {
                 }
             }
         }
+        #if os(iOS)
         .listStyle(.insetGrouped)
+        #else
+        .listStyle(.inset)
+        #endif
     }
 
     private func open(url: URL) {

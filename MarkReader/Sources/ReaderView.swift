@@ -40,7 +40,9 @@ struct ReaderView: View {
             }
         }
         .navigationTitle(fileURL.deletingPathExtension().lastPathComponent)
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        #endif
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
@@ -48,6 +50,7 @@ struct ReaderView: View {
                 } label: {
                     Image(systemName: "textformat.size.smaller")
                 }
+                .keyboardShortcut("-", modifiers: .command)
                 .disabled(textSizeStep == 0)
 
                 Button {
@@ -55,6 +58,7 @@ struct ReaderView: View {
                 } label: {
                     Image(systemName: "textformat.size.larger")
                 }
+                .keyboardShortcut("=", modifiers: .command)
                 .disabled(textSizeStep == Self.typeSizes.count - 1)
             }
         }
