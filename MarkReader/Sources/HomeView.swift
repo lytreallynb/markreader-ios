@@ -234,18 +234,18 @@ struct HomeView: View {
                                 errorMessage = "The file may have been moved or deleted."
                             }
                         } label: {
-                            VStack(alignment: .leading, spacing: 1) {
-                                Label(
-                                    (file.name as NSString).deletingPathExtension,
-                                    systemImage: "clock"
-                                )
-                                .lineLimit(1)
-                                if let parent = file.parentFolderName {
-                                    Text(parent)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                            HStack(spacing: 7) {
+                                Image(systemName: "doc.text.fill")
+                                    .foregroundStyle(.teal)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text((file.name as NSString).deletingPathExtension)
                                         .lineLimit(1)
-                                        .padding(.leading, 24)
+                                    if let parent = file.parentFolderName {
+                                        Text(parent)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
                                 }
                             }
                         }
@@ -461,20 +461,19 @@ struct HomeView: View {
                             errorMessage = "The file may have been moved or deleted."
                         }
                     } label: {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Label {
+                        HStack(spacing: 10) {
+                            Image(systemName: "doc.text.fill")
+                                .foregroundStyle(.teal)
+                            VStack(alignment: .leading, spacing: 2) {
                                 Text(file.name)
                                     .foregroundStyle(.primary)
-                            } icon: {
-                                Image(systemName: "doc.text.fill")
-                                    .foregroundStyle(.teal)
-                            }
-                            .lineLimit(1)
-                            if let parent = file.parentFolderName {
-                                Text(parent)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
                                     .lineLimit(1)
+                                if let parent = file.parentFolderName {
+                                    Text(parent)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
                             }
                         }
                     }
