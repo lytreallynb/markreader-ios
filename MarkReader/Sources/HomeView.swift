@@ -6,6 +6,7 @@ struct HomeView: View {
     @EnvironmentObject private var treeStore: FileTreeStore
     @EnvironmentObject private var outline: OutlineContext
 
+    @AppStorage("sidebar.recentExpanded") private var recentExpanded = true
     @State private var importerMode: ImporterMode?
     // The dismiss binding clears importerMode before the completion handler
     // runs, so the completion must not read it. This copy survives dismissal.
@@ -200,7 +201,7 @@ struct HomeView: View {
             }
 
             if !store.recents.isEmpty {
-                Section("Recent") {
+                Section(isExpanded: $recentExpanded) {
                     ForEach(store.recents) { file in
                         Button {
                             if let url = store.resolveURL(for: file) {
@@ -232,6 +233,8 @@ struct HomeView: View {
                             }
                         }
                     }
+                } header: {
+                    Text("Recent")
                 }
             }
 
