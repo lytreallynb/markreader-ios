@@ -1,10 +1,11 @@
 # MarkReader
 
-iOS Markdown reader for reading .md files on the go. Read-only by design: no editing, no sync service, just clean rendering of files from iCloud Drive / the Files app.
+Markdown reader for iOS and macOS. Read-only by design: no editing, no sync service, just clean rendering of files from iCloud Drive / the Files app.
 
 ## Stack
 
-- Swift 5.9, SwiftUI, iOS 17.0+ deployment target
+- Swift 5.9, SwiftUI, iOS 17.0+ and macOS 14.0+ deployment targets
+- Two targets share `MarkReader/Sources`: `MarkReader` (iOS) and `MarkReaderMac` (macOS). Platform differences are handled with postfix `#if os(iOS)` on view modifiers, keep it that way instead of forking views.
 - [swift-markdown-ui](https://github.com/gonzalezreal/swift-markdown-ui) 2.4+ for GFM rendering (tables, task lists, code blocks)
 - Project generated with XcodeGen from `project.yml`. The `.xcodeproj` is committed for convenience; after editing `project.yml`, run `xcodegen generate` and commit the regenerated project.
 
@@ -14,6 +15,8 @@ iOS Markdown reader for reading .md files on the go. Read-only by design: no edi
 xcodegen generate                          # regenerate MarkReader.xcodeproj from project.yml
 xcodebuild -project MarkReader.xcodeproj -scheme MarkReader \
   -destination 'platform=iOS Simulator,name=iPhone 17' build
+xcodebuild -project MarkReader.xcodeproj -scheme MarkReaderMac \
+  -destination 'platform=macOS,arch=arm64' build
 open MarkReader.xcodeproj                  # open in Xcode for device install
 ```
 
