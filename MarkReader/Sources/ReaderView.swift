@@ -1,9 +1,5 @@
 import SwiftUI
 
-#if canImport(Translation)
-import Translation
-#endif
-
 struct ReaderView: View {
     let fileURL: URL
 
@@ -20,8 +16,7 @@ struct ReaderView: View {
     @State private var noteDraft = ""
     @State private var showNoteAlert = false
     @State private var pendingNoteSelection: PendingSelection?
-    @State private var selectionTranslationText = ""
-    @State private var showSelectionTranslation = false
+    @State private var selectionTranslationText: String?
     @State private var renderTask: Task<Void, Never>?
     @State private var autosaveTask: Task<Void, Never>?
     @StateObject private var previewController = PreviewController()
@@ -176,10 +171,18 @@ struct ReaderView: View {
             controller: previewController
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .modifier(SelectionTranslationModifier(
-            isPresented: $showSelectionTranslation,
-            text: selectionTranslationText
-        ))
+        .overlay(alignment: .bottom) {
+            if let selectionTranslationText {
+                SelectionTranslationCard(
+                    sourceText: selectionTranslationText,
+                    documentText: text,
+                    preferredTarget: translationTarget
+                ) {
+                    self.selectionTranslationText = nil
+                }
+                .padding(16)
+            }
+        }
     }
 
     private var translationPane: some View {
@@ -339,7 +342,6 @@ struct ReaderView: View {
             showNoteAlert = true
         case "translate":
             selectionTranslationText = selection.text
-            showSelectionTranslation = true
         case "clear":
             guard let markText = selection.markText else { return }
             if let updated = MarkdownHighlighter.removeHighlight(
@@ -555,23 +557,6 @@ struct ReaderView: View {
             loadError = error.localizedDescription
         case nil:
             loadError = "The file could not be read."
-        }
-    }
-
-    private struct SelectionTranslationModifier: ViewModifier {
-        @Binding var isPresented: Bool
-        let text: String
-
-        func body(content: Content) -> some View {
-            #if canImport(Translation)
-            if #available(iOS 17.4, macOS 14.4, *) {
-                content.translationPresentation(isPresented: $isPresented, text: text)
-            } else {
-                content
-            }
-            #else
-            content
-            #endif
         }
     }
 

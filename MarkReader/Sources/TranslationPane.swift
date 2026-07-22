@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 import SwiftUI
 import MarkdownUI
 
@@ -223,6 +224,122 @@ private struct LiveTranslationContent: View {
             return
         }
         state = .success(requestDocument.assemble(with: translated))
+    }
+}
+#endif
+
+// MARK: - Selection translation card
+
+/// Bottom card that translates a text selection from the preview. Detects the
+/// source language itself (falling back to the whole document's dominant
+/// language for short selections) so the user is never asked to pick one.
+struct SelectionTranslationCard: View {
+    let sourceText: String
+    let documentText: String
+    let preferredTarget: TranslationTarget
+    let onClose: () -> Void
+
+    var body: some View {
+        #if canImport(Translation)
+        if #available(iOS 18.0, macOS 15.0, *) {
+            LiveSelectionTranslationCard(
+                sourceText: sourceText,
+                documentText: documentText,
+                preferredTarget: preferredTarget,
+                onClose: onClose
+            )
+        } else {
+            EmptyView()
+        }
+        #else
+        EmptyView()
+        #endif
+    }
+}
+
+#if canImport(Translation)
+@available(iOS 18.0, macOS 15.0, *)
+@MainActor
+private struct LiveSelectionTranslationCard: View {
+    let sourceText: String
+    let documentText: String
+    let preferredTarget: TranslationTarget
+    let onClose: () -> Void
+
+    @State private var configuration: TranslationSession.Configuration?
+    @State private var result: String?
+    @State private var errorText: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                Text(sourceText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                Spacer()
+                Button {
+                    onClose()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close translation")
+            }
+
+            if let result {
+                Text(result)
+                    .textSelection(.enabled)
+            } else if let errorText {
+                Text(errorText)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Translating")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: 480, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+        .translationTask(configuration) { session in
+            do {
+                let response = try await withTranslationTimeout(seconds: 20) {
+                    try await session.translate(sourceText)
+                }
+                result = response.targetText
+            } catch {
+                errorText = error.localizedDescription
+            }
+        }
+        .onAppear { configure() }
+        .onChange(of: sourceText) { _, _ in configure() }
+    }
+
+    private func configure() {
+        result = nil
+        errorText = nil
+        let source = Self.detectLanguage(sourceText) ?? Self.detectLanguage(documentText)
+        var target = preferredTarget.localeLanguage
+        if let source, source.languageCode == target.languageCode {
+            let other: TranslationTarget = preferredTarget == .english ? .chinese : .english
+            target = other.localeLanguage
+        }
+        configuration = TranslationSession.Configuration(source: source, target: target)
+    }
+
+    private static func detectLanguage(_ text: String) -> Locale.Language? {
+        let recognizer = NLLanguageRecognizer()
+        recognizer.processString(String(text.prefix(2000)))
+        guard let dominant = recognizer.dominantLanguage else { return nil }
+        return Locale.Language(identifier: dominant.rawValue)
     }
 }
 #endif
