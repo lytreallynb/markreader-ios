@@ -187,10 +187,9 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
           padding: 14px 16px;
           border-radius: 8px;
           overflow-x: auto;
-          background: rgba(140,140,140,0.1);
-          border: 1px solid rgba(140,140,140,0.18);
+          background: #f6f8fa;
         }
-        pre code { background: none; padding: 0; font-size: 0.85em; line-height: 1.55; }
+        pre code, pre code.hljs { background: transparent; padding: 0; font-size: 0.85em; line-height: 1.55; }
         table { border-collapse: collapse; display: block; overflow-x: auto; }
         th, td { border: 1px solid rgba(140,140,140,0.35); padding: 6px 12px; }
         th { background: rgba(140,140,140,0.12); }
@@ -201,11 +200,15 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
           padding: 0.05em 0.15em;
         }
         \(lightCSS)
+        .hljs { background: transparent; padding: 0; }
         @media (prefers-color-scheme: dark) {
           body { color: #e6e6e6; }
           a { color: #4da3ff; }
           blockquote { color: #a0a8b0; }
+          code { background: rgba(200,200,200,0.14); }
           \(darkCSS)
+          pre { background: #161b22; }
+          pre code, .hljs { background: transparent; padding: 0; }
         }
         </style>
         <script>\(js)</script>
