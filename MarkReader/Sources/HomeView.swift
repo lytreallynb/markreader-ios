@@ -7,6 +7,9 @@ struct HomeView: View {
     @EnvironmentObject private var outline: OutlineContext
 
     @State private var importerMode: ImporterMode?
+    // The dismiss binding clears importerMode before the completion handler
+    // runs, so the completion must not read it. This copy survives dismissal.
+    @State private var lastPickedMode: ImporterMode = .file
     @State private var errorMessage: String?
     #if os(macOS)
     @State private var selectedURL: URL?
@@ -40,12 +43,11 @@ struct HomeView: View {
                     : [Self.markdownType, .plainText, .text],
                 allowsMultipleSelection: false
             ) { result in
-                let mode = importerMode
                 importerMode = nil
                 switch result {
                 case .success(let urls):
                     guard let url = urls.first else { return }
-                    if mode == .folder {
+                    if lastPickedMode == .folder {
                         treeStore.openFolder(url)
                     } else {
                         open(url: url)
@@ -232,8 +234,8 @@ struct HomeView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
-                    Button("Open File") { importerMode = .file }
-                    Button("Open Folder") { importerMode = .folder }
+                    Button("Open File") { presentImporter(.file) }
+                    Button("Open Folder") { presentImporter(.folder) }
                     Divider()
                     Button("Refresh Folder") { treeStore.refresh() }
                         .disabled(treeStore.rootURL == nil)
@@ -253,8 +255,8 @@ struct HomeView: View {
             Text("Open a folder to browse its Markdown files, or open a single file.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            Button("Open Folder") { importerMode = .folder }
-            Button("Open File") { importerMode = .file }
+            Button("Open Folder") { presentImporter(.folder) }
+            Button("Open File") { presentImporter(.file) }
         }
         .padding(.vertical, 8)
     }
@@ -296,7 +298,7 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        importerMode = .file
+                        presentImporter(.file)
                     } label: {
                         Label("Open", systemImage: "folder")
                     }
@@ -315,7 +317,7 @@ struct HomeView: View {
             Text("Open a Markdown file from iCloud Drive or the Files app to start reading.")
         } actions: {
             Button("Open File") {
-                importerMode = .file
+                presentImporter(.file)
             }
             .buttonStyle(.borderedProminent)
         }
@@ -354,13 +356,28 @@ struct HomeView: View {
     }
     #endif
 
+    private func presentImporter(_ mode: ImporterMode) {
+        lastPickedMode = mode
+        importerMode = mode
+    }
+
     private func open(url rawURL: URL) {
+        // A folder can arrive here regardless of picker mode, for example
+        // dropped on the Dock icon. Browse it instead of reading it as text.
+        let isDirectory = (try? rawURL.resourceValues(
+            forKeys: [.isDirectoryKey]
+        ))?.isDirectory ?? rawURL.hasDirectoryPath
         #if os(macOS)
+        if isDirectory {
+            treeStore.openFolder(rawURL)
+            return
+        }
         let url = rawURL.canonicalized
         store.add(url: url)
         ensureTreeShows(url)
         selectedURL = url
         #else
+        guard !isDirectory else { return }
         store.add(url: rawURL)
         path.append(rawURL)
         #endif
