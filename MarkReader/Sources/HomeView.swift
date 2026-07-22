@@ -1,12 +1,121 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// Colored file icon: teal for Markdown and text, red for PDF.
+struct FileIconView: View {
+    let url: URL
+
+    var body: some View {
+        if url.pathExtension.lowercased() == "pdf" {
+            Image(systemName: "doc.richtext.fill")
+                .foregroundStyle(.red)
+        } else {
+            Image(systemName: "doc.text.fill")
+                .foregroundStyle(.teal)
+        }
+    }
+}
+
+#if os(macOS)
+/// Lazy Finder-like browser row: lists one directory level on expand, so the
+/// whole home directory is browsable without ever scanning it up front.
+struct SystemBrowserFolder: View {
+    let url: URL
+
+    @State private var isExpanded = false
+    @State private var entries: [FileNode]?
+
+    private static let shownExtensions: Set<String> = ["md", "markdown", "pdf"]
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            if let entries {
+                if entries.isEmpty {
+                    Text("No Markdown or PDF files")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+                ForEach(entries) { node in
+                    if node.isDirectory {
+                        SystemBrowserFolder(url: node.url)
+                    } else {
+                        Label {
+                            Text(node.url.deletingPathExtension().lastPathComponent)
+                        } icon: {
+                            FileIconView(url: node.url)
+                        }
+                        .lineLimit(1)
+                        .tag(node.url)
+                    }
+                }
+            } else {
+                Text("Loading")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        } label: {
+            Label {
+                Text(url.lastPathComponent)
+            } icon: {
+                Image(systemName: "folder.fill")
+                    .foregroundStyle(.blue)
+            }
+            .lineLimit(1)
+            .selectionDisabled(true)
+        }
+        .onChange(of: isExpanded) { _, expanded in
+            if expanded && entries == nil {
+                loadEntries()
+            }
+        }
+    }
+
+    private func loadEntries() {
+        let target = url
+        Task.detached(priority: .userInitiated) {
+            let listed = (try? FileManager.default.contentsOfDirectory(
+                at: target,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )) ?? []
+
+            var folders: [FileNode] = []
+            var files: [FileNode] = []
+            for entry in listed {
+                let isDirectory = (try? entry.resourceValues(
+                    forKeys: [.isDirectoryKey]
+                ))?.isDirectory ?? false
+                if isDirectory {
+                    folders.append(FileNode(
+                        url: entry, name: entry.lastPathComponent,
+                        isDirectory: true, children: nil
+                    ))
+                } else if Self.shownExtensions.contains(entry.pathExtension.lowercased()) {
+                    files.append(FileNode(
+                        url: entry, name: entry.lastPathComponent,
+                        isDirectory: false, children: nil
+                    ))
+                }
+            }
+            let sortByName: (FileNode, FileNode) -> Bool = {
+                $0.name.localizedStandardCompare($1.name) == .orderedAscending
+            }
+            let result = folders.sorted(by: sortByName) + files.sorted(by: sortByName)
+            await MainActor.run {
+                entries = result
+            }
+        }
+    }
+}
+#endif
+
 struct HomeView: View {
     @EnvironmentObject private var store: RecentFilesStore
     @EnvironmentObject private var treeStore: FileTreeStore
     @EnvironmentObject private var outline: OutlineContext
 
     @AppStorage("sidebar.recentExpanded") private var recentExpanded = true
+    @AppStorage("sidebar.homeExpanded") private var homeExpanded = false
     @State private var importerMode: ImporterMode?
     #if os(macOS)
     @State private var showRenameAlert = false
@@ -49,7 +158,7 @@ struct HomeView: View {
                 ),
                 allowedContentTypes: importerMode == .folder
                     ? [.folder]
-                    : [Self.markdownType, .plainText, .text],
+                    : [Self.markdownType, .plainText, .text, .pdf],
                 allowsMultipleSelection: false
             ) { result in
                 importerMode = nil
@@ -191,8 +300,7 @@ struct HomeView: View {
             Label {
                 Text(item.title)
             } icon: {
-                Image(systemName: "doc.text.fill")
-                    .foregroundStyle(.teal)
+                FileIconView(url: item.url)
             }
             .lineLimit(1)
             .tag(item.url)
@@ -216,6 +324,14 @@ struct HomeView: View {
 
     private var sidebar: some View {
         List(selection: $selectedURL) {
+            Section(isExpanded: $homeExpanded) {
+                SystemBrowserFolder(
+                    url: FileManager.default.homeDirectoryForCurrentUser
+                )
+            } header: {
+                Text("Home")
+            }
+
             if !treeStore.tree.isEmpty {
                 Section(treeStore.rootURL?.lastPathComponent ?? "Folder") {
                     OutlineGroup(sidebarItems(from: treeStore.tree), children: \.children) { item in
@@ -255,8 +371,9 @@ struct HomeView: View {
                             }
                         } label: {
                             HStack(spacing: 7) {
-                                Image(systemName: "doc.text.fill")
-                                    .foregroundStyle(.teal)
+                                FileIconView(url: URL(
+                                    fileURLWithPath: file.path ?? file.name
+                                ))
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text((file.name as NSString).deletingPathExtension)
                                         .lineLimit(1)

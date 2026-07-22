@@ -5,6 +5,7 @@ struct ReaderView: View {
 
     @State private var text: String = ""
     @State private var originalText: String?
+    @State private var pdfData: Data?
     @State private var loadError: String?
     @State private var saveError: String?
     @State private var htmlBody: String = ""
@@ -65,9 +66,15 @@ struct ReaderView: View {
         return Self.previewFontSizes[index]
     }
 
+    private var isPDF: Bool {
+        fileURL.pathExtension.lowercased() == "pdf"
+    }
+
     var body: some View {
         Group {
-            if originalText != nil {
+            if isPDF, let pdfData {
+                PDFViewer(data: pdfData)
+            } else if !isPDF, originalText != nil {
                 panes
             } else if let loadError {
                 ContentUnavailableView {
@@ -209,7 +216,7 @@ struct ReaderView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        if !showsSideBySide {
+        if !showsSideBySide && !isPDF {
             ToolbarItem(placement: .principal) {
                 Picker("Mode", selection: $mode) {
                     ForEach(availableModes, id: \.self) { mode in
@@ -221,13 +228,14 @@ struct ReaderView: View {
         }
 
         ToolbarItemGroup(placement: .primaryAction) {
-            if showsSideBySide {
+            if showsSideBySide && !isPDF {
                 Toggle(isOn: $showsSource) {
                     Label("Show Source", systemImage: "chevron.left.forwardslash.chevron.right")
                 }
                 .keyboardShortcut("e", modifiers: .command)
             }
 
+            if !isPDF {
             Menu {
                 ForEach(outline.headings) { heading in
                     Button {
@@ -317,6 +325,7 @@ struct ReaderView: View {
                 .disabled(textSizeStep == Self.previewFontSizes.count - 1)
             } label: {
                 Label("Text Size", systemImage: "textformat.size")
+            }
             }
         }
     }
@@ -552,6 +561,30 @@ struct ReaderView: View {
             if didStartAccess {
                 fileURL.stopAccessingSecurityScopedResource()
             }
+        }
+
+        if isPDF {
+            var coordinatorError: NSError?
+            var readResult: Result<Data, Error>?
+            let coordinator = NSFileCoordinator()
+            coordinator.coordinate(
+                readingItemAt: fileURL,
+                options: [],
+                error: &coordinatorError
+            ) { url in
+                readResult = Result { try Data(contentsOf: url) }
+            }
+            outline.headings = []
+            switch readResult {
+            case .success(let data):
+                pdfData = data
+            case .failure(let error):
+                loadError = error.localizedDescription
+            case nil:
+                loadError = coordinatorError?.localizedDescription
+                    ?? "The file could not be read."
+            }
+            return
         }
 
         var coordinatorError: NSError?

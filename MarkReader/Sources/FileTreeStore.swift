@@ -38,7 +38,7 @@ final class FileTreeStore: ObservableObject {
     private var accessedURL: URL?
     private var refreshTask: Task<Void, Never>?
 
-    nonisolated private static let markdownExtensions: Set<String> = ["md", "markdown"]
+    nonisolated private static let markdownExtensions: Set<String> = ["md", "markdown", "pdf"]
     nonisolated private static let maxDepth = 8
     // Dependency and build folders that are never worth scanning for notes
     // and can contain hundreds of thousands of entries.
