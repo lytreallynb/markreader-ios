@@ -36,9 +36,18 @@ final class FileTreeStore: ObservableObject {
 
     private let storageKey = "openedFolderBookmark.v1"
     private var accessedURL: URL?
+    private var refreshTask: Task<Void, Never>?
 
-    private static let markdownExtensions: Set<String> = ["md", "markdown"]
-    private static let maxDepth = 8
+    nonisolated private static let markdownExtensions: Set<String> = ["md", "markdown"]
+    nonisolated private static let maxDepth = 8
+    // Dependency and build folders that are never worth scanning for notes
+    // and can contain hundreds of thousands of entries.
+    nonisolated private static let ignoredFolderNames: Set<String> = [
+        "node_modules", "Pods", "DerivedData", "__pycache__", "venv",
+    ]
+    // Upper bound on scanned directory entries per refresh, so opening a file
+    // inside a huge folder cannot freeze the app.
+    nonisolated private static let entryBudget = 8000
 
     init() {
         restore()
@@ -78,12 +87,21 @@ final class FileTreeStore: ObservableObject {
         UserDefaults.standard.removeObject(forKey: storageKey)
     }
 
+    /// Rebuilds the tree off the main thread; the freshest request wins.
     func refresh() {
+        refreshTask?.cancel()
         guard let rootURL else {
             tree = []
             return
         }
-        tree = Self.buildChildren(of: rootURL, depth: 0) ?? []
+        refreshTask = Task { [weak self] in
+            let nodes = await Task.detached(priority: .userInitiated) {
+                var budget = Self.entryBudget
+                return Self.buildChildren(of: rootURL, depth: 0, budget: &budget) ?? []
+            }.value
+            guard !Task.isCancelled, let self, self.rootURL == rootURL else { return }
+            self.tree = nodes
+        }
     }
 
     private func restore() {
@@ -115,9 +133,12 @@ final class FileTreeStore: ObservableObject {
 
     /// Returns the Markdown-bearing children of a folder: subfolders that
     /// contain Markdown somewhere below them, and Markdown files themselves.
-    /// Folders sort before files, both alphabetically.
-    private static func buildChildren(of url: URL, depth: Int) -> [FileNode]? {
-        guard depth < maxDepth else { return nil }
+    /// Folders sort before files, both alphabetically. Stops descending once
+    /// the entry budget is spent.
+    nonisolated private static func buildChildren(
+        of url: URL, depth: Int, budget: inout Int
+    ) -> [FileNode]? {
+        guard depth < maxDepth, budget > 0 else { return nil }
         guard let entries = try? FileManager.default.contentsOfDirectory(
             at: url,
             includingPropertiesForKeys: [.isDirectoryKey],
@@ -128,12 +149,16 @@ final class FileTreeStore: ObservableObject {
         var files: [FileNode] = []
 
         for entry in entries {
+            budget -= 1
+            guard budget > 0 else { break }
+
             let isDirectory = (try? entry.resourceValues(
                 forKeys: [.isDirectoryKey]
             ))?.isDirectory ?? false
 
             if isDirectory {
-                if let children = buildChildren(of: entry, depth: depth + 1),
+                guard !ignoredFolderNames.contains(entry.lastPathComponent) else { continue }
+                if let children = buildChildren(of: entry, depth: depth + 1, budget: &budget),
                    !children.isEmpty {
                     folders.append(FileNode(
                         url: entry,

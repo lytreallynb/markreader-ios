@@ -526,7 +526,7 @@ struct ReaderView: View {
     private func scheduleRender() {
         renderTask?.cancel()
         renderTask = Task {
-            try? await Task.sleep(nanoseconds: 120_000_000)
+            try? await Task.sleep(nanoseconds: 250_000_000)
             guard !Task.isCancelled else { return }
             htmlBody = MarkdownHTMLRenderer.renderBody(from: text)
             let headings = MarkdownOutline.headings(in: text)

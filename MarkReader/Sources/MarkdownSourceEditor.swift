@@ -26,6 +26,11 @@ private enum MarkdownSyntaxColoring {
     static let baseFont = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
     #endif
 
+    /// Above this many UTF-16 units, regex colorization is skipped entirely:
+    /// running several full-document regexes on the main thread makes typing
+    /// lag in large files. Base font and color still apply.
+    static let colorizeCharacterLimit = 150_000
+
     private static let headingRegex = try! NSRegularExpression(
         pattern: "^#{1,6}[ \t].*$", options: [.anchorsMatchLines]
     )
@@ -79,6 +84,7 @@ private enum MarkdownSyntaxColoring {
     #endif
 
     private static func colorize(storage: NSTextStorage, fullRange: NSRange) {
+        guard fullRange.length <= colorizeCharacterLimit else { return }
         fencedCodeBlockRegex.enumerateMatches(in: storage.string, range: fullRange) { match, _, _ in
             guard let range = match?.range else { return }
             storage.addAttribute(.foregroundColor, value: PlatformSemanticColor.codeBlock, range: range)
@@ -222,14 +228,29 @@ private struct MarkdownSourceEditorRepresentable: UIViewRepresentable {
             self.selection = selection
         }
 
+        private var pendingColorize: DispatchWorkItem?
+
         func textViewDidChange(_ textView: UITextView) {
             guard !isApplyingProgrammaticUpdate else { return }
-            let selectedRange = textView.selectedRange
             isApplyingProgrammaticUpdate = true
             text.wrappedValue = textView.text
-            MarkdownSyntaxColoring.apply(to: textView.textStorage, baseColor: .label)
-            textView.selectedRange = selectedRange
             isApplyingProgrammaticUpdate = false
+            scheduleColorize(for: textView)
+        }
+
+        /// Recolorizing on every keystroke runs full-document regexes on the
+        /// main thread and makes typing lag; debounce it instead. Attribute
+        /// changes do not re-enter textViewDidChange.
+        private func scheduleColorize(for textView: UITextView) {
+            pendingColorize?.cancel()
+            let item = DispatchWorkItem { [weak textView] in
+                guard let textView else { return }
+                let selectedRange = textView.selectedRange
+                MarkdownSyntaxColoring.apply(to: textView.textStorage, baseColor: .label)
+                textView.selectedRange = selectedRange
+            }
+            pendingColorize = item
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: item)
         }
 
         func textViewDidChangeSelection(_ textView: UITextView) {
@@ -298,17 +319,30 @@ private struct MarkdownSourceEditorRepresentable: NSViewRepresentable {
             self.selection = selection
         }
 
+        private var pendingColorize: DispatchWorkItem?
+
         func textDidChange(_ notification: Notification) {
             guard !isApplyingProgrammaticUpdate else { return }
             guard let textView = notification.object as? NSTextView else { return }
-            let selectedRanges = textView.selectedRanges
             isApplyingProgrammaticUpdate = true
             text.wrappedValue = textView.string
-            if let storage = textView.textStorage {
-                MarkdownSyntaxColoring.apply(to: storage, baseColor: .labelColor)
-            }
-            textView.selectedRanges = selectedRanges
             isApplyingProgrammaticUpdate = false
+            scheduleColorize(for: textView)
+        }
+
+        /// Recolorizing on every keystroke runs full-document regexes on the
+        /// main thread and makes typing lag; debounce it instead. Attribute
+        /// changes do not re-enter textDidChange.
+        private func scheduleColorize(for textView: NSTextView) {
+            pendingColorize?.cancel()
+            let item = DispatchWorkItem { [weak textView] in
+                guard let textView, let storage = textView.textStorage else { return }
+                let selectedRanges = textView.selectedRanges
+                MarkdownSyntaxColoring.apply(to: storage, baseColor: .labelColor)
+                textView.selectedRanges = selectedRanges
+            }
+            pendingColorize = item
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: item)
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {
