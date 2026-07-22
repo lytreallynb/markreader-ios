@@ -157,13 +157,23 @@ struct HomeView: View {
     private func sidebarRow(for item: SidebarItem) -> some View {
         switch item.kind {
         case .folder:
-            Label(item.title, systemImage: "folder")
-                .lineLimit(1)
-                .selectionDisabled(true)
+            Label {
+                Text(item.title)
+            } icon: {
+                Image(systemName: "folder.fill")
+                    .foregroundStyle(.blue)
+            }
+            .lineLimit(1)
+            .selectionDisabled(true)
         case .file:
-            Label(item.title, systemImage: "doc.text")
-                .lineLimit(1)
-                .tag(item.url)
+            Label {
+                Text(item.title)
+            } icon: {
+                Image(systemName: "doc.text.fill")
+                    .foregroundStyle(.teal)
+            }
+            .lineLimit(1)
+            .tag(item.url)
         case .heading(let level, let line):
             Button {
                 outline.jump(toLine: line)
@@ -335,9 +345,14 @@ struct HomeView: View {
                         }
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
-                            Label(file.name, systemImage: "doc.text")
-                                .foregroundStyle(.primary)
-                                .lineLimit(1)
+                            Label {
+                                Text(file.name)
+                                    .foregroundStyle(.primary)
+                            } icon: {
+                                Image(systemName: "doc.text.fill")
+                                    .foregroundStyle(.teal)
+                            }
+                            .lineLimit(1)
                             if let parent = file.parentFolderName {
                                 Text(parent)
                                     .font(.caption)
