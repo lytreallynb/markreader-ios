@@ -5,6 +5,15 @@ struct RecentFile: Identifiable, Codable, Equatable {
     var name: String
     var bookmark: Data
     var lastOpened: Date
+    // Full path at the time the file was opened. Used to deduplicate and to
+    // show the parent folder, without resolving the bookmark during list
+    // rendering. Optional because entries saved by older versions lack it.
+    var path: String?
+
+    var parentFolderName: String? {
+        guard let path else { return nil }
+        return URL(fileURLWithPath: path).deletingLastPathComponent().lastPathComponent
+    }
 }
 
 @MainActor
@@ -26,9 +35,15 @@ final class RecentFilesStore: ObservableObject {
         ) else { return }
 
         let name = url.lastPathComponent
-        recents.removeAll { $0.name == name }
+        let path = url.path
+        recents.removeAll {
+            $0.path == path || ($0.path == nil && $0.name == name)
+        }
         recents.insert(
-            RecentFile(id: UUID(), name: name, bookmark: bookmark, lastOpened: Date()),
+            RecentFile(
+                id: UUID(), name: name, bookmark: bookmark,
+                lastOpened: Date(), path: path
+            ),
             at: 0
         )
         if recents.count > maxRecents {
@@ -41,6 +56,11 @@ final class RecentFilesStore: ObservableObject {
         for index in offsets.sorted(by: >) where recents.indices.contains(index) {
             recents.remove(at: index)
         }
+        save()
+    }
+
+    func remove(_ file: RecentFile) {
+        recents.removeAll { $0.id == file.id }
         save()
     }
 

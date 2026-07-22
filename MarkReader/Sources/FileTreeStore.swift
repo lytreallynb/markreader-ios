@@ -1,5 +1,9 @@
 import Foundation
 
+#if os(macOS)
+import AppKit
+#endif
+
 extension URL {
     /// Resolves symlinks and firmlinks (such as the /System/Volumes/Data
     /// prefix that bookmark resolution adds on macOS) so URLs for the same
@@ -38,6 +42,19 @@ final class FileTreeStore: ObservableObject {
 
     init() {
         restore()
+        #if os(macOS)
+        // Pick up files created, renamed, or deleted outside the app whenever
+        // it comes back to the foreground.
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.refresh()
+            }
+        }
+        #endif
     }
 
     func openFolder(_ url: URL) {

@@ -529,7 +529,10 @@ struct ReaderView: View {
             try? await Task.sleep(nanoseconds: 120_000_000)
             guard !Task.isCancelled else { return }
             htmlBody = MarkdownHTMLRenderer.renderBody(from: text)
-            outline.headings = MarkdownOutline.headings(in: text)
+            let headings = MarkdownOutline.headings(in: text)
+            if headings != outline.headings {
+                outline.headings = headings
+            }
         }
     }
 

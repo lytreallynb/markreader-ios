@@ -187,17 +187,35 @@ struct HomeView: View {
             if !store.recents.isEmpty {
                 Section("Recent") {
                     ForEach(store.recents) { file in
-                        if let url = store.resolveURL(for: file) {
-                            Label(
-                                url.deletingPathExtension().lastPathComponent,
-                                systemImage: "clock"
-                            )
-                            .lineLimit(1)
-                            .tag(url)
+                        Button {
+                            if let url = store.resolveURL(for: file) {
+                                open(url: url)
+                            } else {
+                                errorMessage = "The file may have been moved or deleted."
+                            }
+                        } label: {
+                            VStack(alignment: .leading, spacing: 1) {
+                                Label(
+                                    (file.name as NSString).deletingPathExtension,
+                                    systemImage: "clock"
+                                )
+                                .lineLimit(1)
+                                if let parent = file.parentFolderName {
+                                    Text(parent)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                        .padding(.leading, 24)
+                                }
+                            }
                         }
-                    }
-                    .onDelete { offsets in
-                        store.remove(at: offsets)
+                        .buttonStyle(.plain)
+                        .selectionDisabled(true)
+                        .contextMenu {
+                            Button("Remove from Recent", role: .destructive) {
+                                store.remove(file)
+                            }
+                        }
                     }
                 }
             }
@@ -311,9 +329,17 @@ struct HomeView: View {
                             errorMessage = "The file may have been moved or deleted."
                         }
                     } label: {
-                        Label(file.name, systemImage: "doc.text")
-                            .foregroundStyle(.primary)
-                            .lineLimit(1)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label(file.name, systemImage: "doc.text")
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                            if let parent = file.parentFolderName {
+                                Text(parent)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
+                        }
                     }
                 }
                 .onDelete { offsets in
