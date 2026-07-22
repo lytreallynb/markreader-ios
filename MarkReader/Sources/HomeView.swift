@@ -115,20 +115,29 @@ struct HomeView: View {
         var children: [SidebarItem]?
     }
 
+    /// Files map to their row plus, when the file is the open one, its
+    /// heading rows directly below: the outline expands automatically on
+    /// open instead of hiding behind a disclosure chevron.
     private func sidebarItems(from nodes: [FileNode]) -> [SidebarItem] {
-        nodes.map { node in
+        nodes.flatMap { node -> [SidebarItem] in
             if node.isDirectory {
-                return SidebarItem(
+                return [SidebarItem(
                     id: node.url.path,
                     title: node.name,
                     kind: .folder,
                     url: node.url,
                     children: sidebarItems(from: node.children ?? [])
-                )
+                )]
             }
-            var children: [SidebarItem]?
-            if node.url == selectedURL, !outline.headings.isEmpty {
-                children = outline.headings.map { heading in
+            var items = [SidebarItem(
+                id: node.url.path,
+                title: node.url.deletingPathExtension().lastPathComponent,
+                kind: .file,
+                url: node.url,
+                children: nil
+            )]
+            if node.url == selectedURL {
+                items += outline.headings.map { heading in
                     SidebarItem(
                         id: "\(node.url.path)#\(heading.line)",
                         title: heading.title,
@@ -138,13 +147,7 @@ struct HomeView: View {
                     )
                 }
             }
-            return SidebarItem(
-                id: node.url.path,
-                title: node.url.deletingPathExtension().lastPathComponent,
-                kind: .file,
-                url: node.url,
-                children: children
-            )
+            return items
         }
     }
 
@@ -167,7 +170,7 @@ struct HomeView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                    .padding(.leading, CGFloat(max(0, level - 1)) * 10)
+                    .padding(.leading, 22 + CGFloat(max(0, level - 1)) * 10)
             }
             .buttonStyle(.plain)
             .selectionDisabled(true)
