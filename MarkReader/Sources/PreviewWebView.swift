@@ -28,7 +28,7 @@ struct PreviewWebView {
         webView.backgroundColor = .clear
         webView.scrollView.backgroundColor = .clear
         #endif
-        controller.webView = webView
+        controller.attach(webView)
         return webView
     }
 
@@ -46,7 +46,18 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
     private var loadedBaseURL: URL?
     private var pendingBody: String?
     private var pendingFontSize: Int = 16
+    private var pendingScrollLine: Int?
     private var lastBody: String?
+
+    /// Called whenever SwiftUI creates a fresh WKWebView (for example when a
+    /// compact layout switches panes). Resets load state so the template is
+    /// reloaded into the new web view.
+    func attach(_ webView: WKWebView) {
+        self.webView = webView
+        pageLoaded = false
+        loadedBaseURL = nil
+        lastBody = nil
+    }
 
     func setDocument(body: String, baseURL: URL?, fontSize: Int) {
         guard let webView else { return }
@@ -74,6 +85,12 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
             pendingBody = nil
             apply(body: body)
         }
+        if let line = pendingScrollLine {
+            pendingScrollLine = nil
+            webView.evaluateJavaScript(
+                "setTimeout(function () { window.scrollToSourceLine(\(line)); }, 120)"
+            )
+        }
     }
 
     func webView(
@@ -92,6 +109,14 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
             return
         }
         decisionHandler(.allow)
+    }
+
+    func scrollToLine(_ line: Int) {
+        if pageLoaded {
+            webView?.evaluateJavaScript("window.scrollToSourceLine(\(line))")
+        } else {
+            pendingScrollLine = line
+        }
     }
 
     func currentSelection() async -> PreviewSelection? {
@@ -199,6 +224,14 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
           border-radius: 3px;
           padding: 0.05em 0.15em;
         }
+        u { text-underline-offset: 0.2em; }
+        section.footnotes {
+          margin-top: 2em;
+          font-size: 0.88em;
+          color: #59636e;
+        }
+        section.footnotes p { margin-bottom: 0.4em; }
+        sup a { font-weight: 600; }
         \(lightCSS)
         .hljs { background: transparent; padding: 0; }
         @media (prefers-color-scheme: dark) {
@@ -226,6 +259,19 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
         };
         window.setFontSize = function (px) {
           document.documentElement.style.setProperty("--base-size", px + "px");
+        };
+        window.scrollToSourceLine = function (line) {
+          var els = document.querySelectorAll("[data-sourcepos]");
+          var best = null;
+          var bestLine = -1;
+          els.forEach(function (el) {
+            var start = parseInt(el.getAttribute("data-sourcepos"));
+            if (!isNaN(start) && start <= line && start > bestLine) {
+              best = el;
+              bestLine = start;
+            }
+          });
+          if (best) { best.scrollIntoView({ behavior: "smooth", block: "start" }); }
         };
         window.getSelectionInfo = function () {
           var sel = window.getSelection();

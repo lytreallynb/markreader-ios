@@ -13,9 +13,17 @@ struct ReaderView: View {
     @State private var showsTranslation = false
     @State private var translationTarget: TranslationTarget = .english
     @State private var highlightMessage: String?
+    @State private var noteDraft = ""
+    @State private var showNoteAlert = false
+    @State private var pendingNoteSelection: PendingSelection?
     @State private var renderTask: Task<Void, Never>?
     @State private var autosaveTask: Task<Void, Never>?
     @StateObject private var previewController = PreviewController()
+
+    private enum PendingSelection {
+        case preview(PreviewSelection)
+        case editor(NSRange)
+    }
 
     @AppStorage("reader.textSizeStep") private var textSizeStep: Int = 2
 
@@ -112,6 +120,13 @@ struct ReaderView: View {
         } message: {
             Text(highlightMessage ?? "")
         }
+        .alert("Add Note", isPresented: $showNoteAlert) {
+            TextField("Note text", text: $noteDraft)
+            Button("Add") { confirmNote() }
+            Button("Cancel", role: .cancel) { pendingNoteSelection = nil }
+        } message: {
+            Text("The note is attached to the selected text as a footnote.")
+        }
     }
 
     // MARK: - Layout
@@ -178,6 +193,20 @@ struct ReaderView: View {
 
         ToolbarItemGroup(placement: .primaryAction) {
             Menu {
+                ForEach(MarkdownOutline.headings(in: text)) { heading in
+                    Button {
+                        jump(to: heading)
+                    } label: {
+                        Text(String(repeating: "    ", count: heading.level - 1)
+                            + heading.title)
+                    }
+                }
+            } label: {
+                Label("Outline", systemImage: "list.bullet.indent")
+            }
+            .disabled(MarkdownOutline.headings(in: text).isEmpty)
+
+            Menu {
                 ForEach(HighlightColor.allCases) { color in
                     Button(color.displayName) {
                         applyHighlight(color)
@@ -189,6 +218,24 @@ struct ReaderView: View {
                 }
             } label: {
                 Label("Highlight", systemImage: "highlighter")
+            }
+
+            Menu {
+                ForEach(InlineFormat.allCases) { format in
+                    Button {
+                        applyFormat(format)
+                    } label: {
+                        Label(format.displayName, systemImage: format.systemImage)
+                    }
+                }
+                Divider()
+                Button {
+                    beginNote()
+                } label: {
+                    Label("Add Note", systemImage: "note.text.badge.plus")
+                }
+            } label: {
+                Label("Format", systemImage: "bold")
             }
 
             Menu {
@@ -236,6 +283,98 @@ struct ReaderView: View {
                 Label("Text Size", systemImage: "textformat.size")
             }
         }
+    }
+
+    // MARK: - Outline, formatting, notes
+
+    private func jump(to heading: OutlineHeading) {
+        if !showsSideBySide && mode == .write {
+            mode = .preview
+        }
+        previewController.scrollToLine(heading.line)
+    }
+
+    private func applyFormat(_ format: InlineFormat) {
+        Task {
+            let previewVisible = showsSideBySide || mode == .preview
+            if previewVisible,
+               let selection = await previewController.currentSelection(),
+               !selection.text.isEmpty {
+                if let updated = MarkdownHighlighter.wrapRenderedSelection(
+                    source: text,
+                    selectedText: selection.text,
+                    sourcePos: selection.sourcePos,
+                    prefix: format.prefix,
+                    suffix: format.suffix
+                ) {
+                    text = updated
+                } else {
+                    highlightMessage = "Could not match the selection in the source. "
+                        + "Try selecting text without inline formatting, or format in Write mode."
+                }
+                return
+            }
+
+            if editorSelection.length > 0,
+               let updated = MarkdownHighlighter.wrapSourceRange(
+                   text, range: editorSelection,
+                   prefix: format.prefix, suffix: format.suffix
+               ) {
+                text = updated
+                return
+            }
+
+            highlightMessage = "Select some text in the preview or the editor first."
+        }
+    }
+
+    private func beginNote() {
+        Task {
+            let previewVisible = showsSideBySide || mode == .preview
+            if previewVisible,
+               let selection = await previewController.currentSelection(),
+               !selection.text.isEmpty {
+                pendingNoteSelection = .preview(selection)
+            } else if editorSelection.length > 0 {
+                pendingNoteSelection = .editor(editorSelection)
+            } else {
+                highlightMessage = "Select the text you want to annotate first."
+                return
+            }
+            noteDraft = ""
+            showNoteAlert = true
+        }
+    }
+
+    private func confirmNote() {
+        guard let pending = pendingNoteSelection else { return }
+        pendingNoteSelection = nil
+        let note = noteDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !note.isEmpty else { return }
+
+        let label = MarkdownNotes.nextLabel(in: text)
+        let reference = "[^\(label)]"
+        var updated: String?
+        switch pending {
+        case .preview(let selection):
+            updated = MarkdownHighlighter.wrapRenderedSelection(
+                source: text,
+                selectedText: selection.text,
+                sourcePos: selection.sourcePos,
+                prefix: "",
+                suffix: reference
+            )
+        case .editor(let range):
+            updated = MarkdownHighlighter.wrapSourceRange(
+                text, range: range, prefix: "", suffix: reference
+            )
+        }
+
+        guard let updated else {
+            highlightMessage = "Could not match the selection in the source."
+            return
+        }
+        text = MarkdownNotes.appendDefinition(to: updated, label: label, note: note)
     }
 
     // MARK: - Highlighting

@@ -32,6 +32,49 @@ enum HighlightColor: String, CaseIterable, Identifiable {
     }
 }
 
+/// Inline formats that can be applied to a selection, written back into the
+/// Markdown source. Bold and strikethrough use Markdown syntax; underline has
+/// no Markdown form so it uses the HTML tag, which the preview passes through.
+enum InlineFormat: String, CaseIterable, Identifiable {
+    case bold
+    case underline
+    case strikethrough
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .bold: return "Bold"
+        case .underline: return "Underline"
+        case .strikethrough: return "Strikethrough"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .bold: return "bold"
+        case .underline: return "underline"
+        case .strikethrough: return "strikethrough"
+        }
+    }
+
+    var prefix: String {
+        switch self {
+        case .bold: return "**"
+        case .underline: return "<u>"
+        case .strikethrough: return "~~"
+        }
+    }
+
+    var suffix: String {
+        switch self {
+        case .bold: return "**"
+        case .underline: return "</u>"
+        case .strikethrough: return "~~"
+        }
+    }
+}
+
 /// Applies and removes <mark> highlights in Markdown source text.
 enum MarkdownHighlighter {
     static func markup(for text: String, color: HighlightColor) -> String {
@@ -71,6 +114,34 @@ enum MarkdownHighlighter {
             needle: selectedText,
             sourcePos: sourcePos
         ) { markup(for: $0, color: color) }
+    }
+
+    /// Wraps the given UTF-16 range of the source with arbitrary prefix and
+    /// suffix. Used for inline formats and note references from the editor.
+    static func wrapSourceRange(
+        _ source: String, range: NSRange, prefix: String, suffix: String
+    ) -> String? {
+        let nsSource = source as NSString
+        guard range.length > 0,
+              range.location >= 0,
+              range.location + range.length <= nsSource.length
+        else { return nil }
+        let selected = nsSource.substring(with: range)
+        return nsSource.replacingCharacters(in: range, with: prefix + selected + suffix)
+    }
+
+    /// Finds the selected plain text near sourcepos and wraps it with the
+    /// given prefix and suffix. Used for inline formats and note references
+    /// from the rendered preview.
+    static func wrapRenderedSelection(
+        source: String, selectedText: String, sourcePos: String?,
+        prefix: String, suffix: String
+    ) -> String? {
+        replaceNearSourcePos(
+            source: source,
+            needle: selectedText,
+            sourcePos: sourcePos
+        ) { prefix + $0 + suffix }
     }
 
     /// Removes the highlight around the given mark content near sourcepos.
