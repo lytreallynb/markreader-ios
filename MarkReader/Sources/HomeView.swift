@@ -93,9 +93,9 @@ struct HomeView: View {
             }
         }
         .onChange(of: selectedURL) { _, url in
-            if let url {
-                store.add(url: url)
-            }
+            guard let url else { return }
+            store.add(url: url)
+            ensureTreeShows(url)
         }
     }
 
@@ -328,24 +328,28 @@ struct HomeView: View {
     private func open(url rawURL: URL) {
         #if os(macOS)
         let url = rawURL.canonicalized
-        #else
-        let url = rawURL
-        #endif
         store.add(url: url)
-        #if os(macOS)
+        ensureTreeShows(url)
         selectedURL = url
-        // Show the file's folder as the sidebar tree automatically, so the
-        // user never has to pick a folder by hand. Keep the current tree when
-        // the file already lives inside it.
+        #else
+        store.add(url: rawURL)
+        path.append(rawURL)
+        #endif
+    }
+
+    #if os(macOS)
+    /// Shows the file's folder as the sidebar tree automatically, so the user
+    /// never has to pick a folder by hand. Runs on every selection change
+    /// (tree, recents, picker, Finder). Keeps the current tree when the file
+    /// already lives inside it.
+    private func ensureTreeShows(_ url: URL) {
         let parent = url.deletingLastPathComponent()
         let insideCurrentTree = treeStore.rootURL.map {
-            url.standardizedFileURL.path.hasPrefix($0.standardizedFileURL.path + "/")
+            url.path.hasPrefix($0.path + "/")
         } ?? false
         if !insideCurrentTree {
             treeStore.openFolder(parent)
         }
-        #else
-        path.append(url)
-        #endif
     }
+    #endif
 }
