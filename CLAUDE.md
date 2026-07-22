@@ -1,12 +1,13 @@
 # MarkReader
 
-Markdown reader for iOS and macOS. Read-only by design: no editing, no sync service, just clean rendering of files from iCloud Drive / the Files app.
+Native Markdown editor and reader for iOS and macOS. It opens files from iCloud Drive or the Files app, provides a highlighted source editor with live rendering, saves in place, and offers optional on-device Chinese and English translation on supported systems.
 
 ## Stack
 
 - Swift 5.9, SwiftUI, iOS 17.0+ and macOS 14.0+ deployment targets
 - Two targets share `MarkReader/Sources`: `MarkReader` (iOS) and `MarkReaderMac` (macOS). Platform differences are handled with postfix `#if os(iOS)` on view modifiers, keep it that way instead of forking views.
-- [swift-markdown-ui](https://github.com/gonzalezreal/swift-markdown-ui) 2.4+ for GFM rendering (tables, task lists, code blocks)
+- Preview rendering: cmark-gfm (swiftlang/swift-cmark, products `cmark-gfm` + `cmark-gfm-extensions`) generates HTML with `data-sourcepos`, shown in a WKWebView with bundled highlight.js (`MarkReader/Resources`). The sourcepos attributes are load-bearing: they map preview selections back to source lines for the highlighter.
+- [swift-markdown-ui](https://github.com/gonzalezreal/swift-markdown-ui) is still used to render the translation pane only.
 - Project generated with XcodeGen from `project.yml`. The `.xcodeproj` is committed for convenience; after editing `project.yml`, run `xcodegen generate` and commit the regenerated project.
 
 ## Commands
@@ -22,9 +23,16 @@ open MarkReader.xcodeproj                  # open in Xcode for device install
 
 ## Architecture
 
-- `MarkReader/Sources/MarkReaderApp.swift`: app entry, injects `RecentFilesStore`.
-- `HomeView.swift`: recents list + `fileImporter` picker + `onOpenURL` (open-in-place from Files app). Navigation pushes a `URL` onto a `NavigationStack` path.
-- `ReaderView.swift`: loads file content via `NSFileCoordinator` (handles undownloaded iCloud files) inside a security-scoped access block, renders with MarkdownUI's GitHub theme. Text size steps through `DynamicTypeSize`, persisted in `@AppStorage`.
+- `MarkReaderApp.swift`: app entry, injects `RecentFilesStore` and `FileTreeStore`. On macOS an `NSApplicationDelegate` routes Finder file opens through `OpenFileRouter`.
+- `HomeView.swift`: macOS uses `NavigationSplitView` with a sidebar (folder tree via `OutlineGroup` + recents, no timestamps) and an actions menu including Set as Default Markdown App (`NSWorkspace.setDefaultApplication`). iOS keeps a `NavigationStack` with recents.
+- `FileTreeStore.swift`: persisted security-scoped folder bookmark; builds a tree of Markdown-bearing folders and .md files, folders before files.
+- `ReaderView.swift`: Write / Preview / Translate panes, side by side on macOS and regular-width iPad, segmented modes on iPhone. Live render is debounced 120 ms; autosave is debounced 900 ms plus save-on-disappear (no explicit dirty UI). Toolbar highlighter applies colored `<mark>` to the preview selection (matched near its `data-sourcepos`) or the editor selection.
+- `MarkdownHTMLRenderer.swift`: cmark-gfm to HTML with sourcepos + unsafe (raw `<mark>` passthrough); expands `==text==` outside code to `<mark>`.
+- `PreviewWebView.swift`: WKWebView wrapper; self-contained page template with inlined CSS and highlight.js, incremental `setDoc` updates that keep scroll position, selection queries for the highlighter, external links open in the browser.
+- `MarkdownHighlighter.swift`: applies and removes `<mark>`/`==` highlights in the source, searching near the cmark sourcepos window first.
+- `MarkdownSourceEditor.swift`: shared TextKit editor (`UITextView`/`NSTextView`) with source syntax coloring and a selection binding for the highlighter.
+- `TranslationPane.swift`: Apple Translation (iOS 18 / macOS 15+). Segments the document so only prose and code comments are translated: code bodies, inline code, file names, paths, URLs, link targets, and images are protected tokens that never reach the translator; each failed segment falls back to its original text. Requests are batched (32) with hard timeouts so the pane cannot hang; a Download Language Support button calls `prepareTranslation`.
+- `CodeBlockHighlighter.swift`: code coloring for the MarkdownUI-rendered translation pane.
 - `RecentFilesStore.swift`: recent files as security-scoped bookmarks in `UserDefaults`, refreshes stale bookmarks on resolve.
 
 ## Deploy notes

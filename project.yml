@@ -9,15 +9,24 @@ packages:
   MarkdownUI:
     url: https://github.com/gonzalezreal/swift-markdown-ui
     from: 2.4.1
+  cmark:
+    url: https://github.com/swiftlang/swift-cmark
+    from: "0.5.0"
 targets:
   MarkReader:
     type: application
     platform: iOS
     sources:
       - MarkReader/Sources
+      - path: MarkReader/Resources
+        buildPhase: resources
     dependencies:
       - package: MarkdownUI
         product: MarkdownUI
+      - package: cmark
+        product: cmark-gfm
+      - package: cmark
+        product: cmark-gfm-extensions
     info:
       path: MarkReader/Info.plist
       properties:
@@ -26,7 +35,7 @@ targets:
         LSSupportsOpeningDocumentsInPlace: true
         CFBundleDocumentTypes:
           - CFBundleTypeName: Markdown Document
-            CFBundleTypeRole: Viewer
+            CFBundleTypeRole: Editor
             LSHandlerRank: Alternate
             LSItemContentTypes:
               - net.daringfireball.markdown
@@ -54,19 +63,29 @@ targets:
     platform: macOS
     sources:
       - MarkReader/Sources
+      - path: MarkReader/Resources
+        buildPhase: resources
     dependencies:
       - package: MarkdownUI
         product: MarkdownUI
+      - package: cmark
+        product: cmark-gfm
+      - package: cmark
+        product: cmark-gfm-extensions
     info:
       path: MarkReader/Info-macOS.plist
       properties:
         CFBundleDisplayName: MarkReader
         CFBundleDocumentTypes:
           - CFBundleTypeName: Markdown Document
-            CFBundleTypeRole: Viewer
-            LSHandlerRank: Alternate
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Default
             LSItemContentTypes:
               - net.daringfireball.markdown
+          - CFBundleTypeName: Plain Text Document
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
               - public.plain-text
         UTImportedTypeDeclarations:
           - UTTypeIdentifier: net.daringfireball.markdown

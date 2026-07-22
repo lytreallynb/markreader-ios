@@ -3,15 +3,198 @@ import UniformTypeIdentifiers
 
 struct HomeView: View {
     @EnvironmentObject private var store: RecentFilesStore
-    @State private var showImporter = false
-    @State private var path: [URL] = []
-    @State private var errorMessage: String?
+    @EnvironmentObject private var treeStore: FileTreeStore
 
-    private static let markdownType = UTType(
-        importedAs: "net.daringfireball.markdown"
-    )
+    @State private var importerMode: ImporterMode?
+    @State private var errorMessage: String?
+    #if os(macOS)
+    @State private var selectedURL: URL?
+    #else
+    @State private var path: [URL] = []
+    #endif
+
+    private enum ImporterMode: Identifiable {
+        case file
+        case folder
+
+        var id: Int {
+            switch self {
+            case .file: return 0
+            case .folder: return 1
+            }
+        }
+    }
+
+    static let markdownType = UTType(importedAs: "net.daringfireball.markdown")
 
     var body: some View {
+        mainContent
+            .fileImporter(
+                isPresented: Binding(
+                    get: { importerMode != nil },
+                    set: { if !$0 { importerMode = nil } }
+                ),
+                allowedContentTypes: importerMode == .folder
+                    ? [.folder]
+                    : [Self.markdownType, .plainText, .text],
+                allowsMultipleSelection: false
+            ) { result in
+                let mode = importerMode
+                importerMode = nil
+                switch result {
+                case .success(let urls):
+                    guard let url = urls.first else { return }
+                    if mode == .folder {
+                        treeStore.openFolder(url)
+                    } else {
+                        open(url: url)
+                    }
+                case .failure(let error):
+                    errorMessage = error.localizedDescription
+                }
+            }
+            .onOpenURL { url in
+                open(url: url)
+            }
+            #if os(macOS)
+            .onReceive(OpenFileRouter.shared.$pendingURL) { url in
+                guard let url else { return }
+                OpenFileRouter.shared.pendingURL = nil
+                open(url: url)
+            }
+            #endif
+            .alert(
+                "Could not open file",
+                isPresented: Binding(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage ?? "")
+            }
+    }
+
+    // MARK: - macOS: split view with folder tree sidebar
+
+    #if os(macOS)
+    private var mainContent: some View {
+        NavigationSplitView {
+            sidebar
+                .navigationSplitViewColumnWidth(min: 200, ideal: 240)
+        } detail: {
+            if let selectedURL {
+                ReaderView(fileURL: selectedURL)
+                    .id(selectedURL)
+            } else {
+                emptyDetail
+            }
+        }
+        .onChange(of: selectedURL) { _, url in
+            if let url {
+                store.add(url: url)
+            }
+        }
+    }
+
+    private var sidebar: some View {
+        List(selection: $selectedURL) {
+            if !treeStore.tree.isEmpty {
+                Section(treeStore.rootURL?.lastPathComponent ?? "Folder") {
+                    OutlineGroup(treeStore.tree, children: \.children) { node in
+                        Label(
+                            node.isDirectory
+                                ? node.name
+                                : node.url.deletingPathExtension().lastPathComponent,
+                            systemImage: node.isDirectory ? "folder" : "doc.text"
+                        )
+                        .lineLimit(1)
+                        .tag(node.url)
+                        .selectionDisabled(node.isDirectory)
+                    }
+                }
+            }
+
+            if !store.recents.isEmpty {
+                Section("Recent") {
+                    ForEach(store.recents) { file in
+                        if let url = store.resolveURL(for: file) {
+                            Label(
+                                url.deletingPathExtension().lastPathComponent,
+                                systemImage: "clock"
+                            )
+                            .lineLimit(1)
+                            .tag(url)
+                        }
+                    }
+                    .onDelete { offsets in
+                        store.remove(at: offsets)
+                    }
+                }
+            }
+
+            if treeStore.tree.isEmpty && store.recents.isEmpty {
+                emptySidebarHint
+            }
+        }
+        .listStyle(.sidebar)
+        .navigationTitle("MarkReader")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button("Open File") { importerMode = .file }
+                    Button("Open Folder") { importerMode = .folder }
+                    Divider()
+                    Button("Refresh Folder") { treeStore.refresh() }
+                        .disabled(treeStore.rootURL == nil)
+                    Button("Close Folder") { treeStore.closeFolder() }
+                        .disabled(treeStore.rootURL == nil)
+                    Divider()
+                    Button("Set as Default Markdown App") { setAsDefaultMarkdownApp() }
+                } label: {
+                    Label("Actions", systemImage: "ellipsis.circle")
+                }
+            }
+        }
+    }
+
+    private var emptySidebarHint: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Open a folder to browse its Markdown files, or open a single file.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Button("Open Folder") { importerMode = .folder }
+            Button("Open File") { importerMode = .file }
+        }
+        .padding(.vertical, 8)
+    }
+
+    private var emptyDetail: some View {
+        ContentUnavailableView {
+            Label("No File Selected", systemImage: "doc.text")
+        } description: {
+            Text("Select a file in the sidebar, or open one from Finder.")
+        }
+    }
+
+    private func setAsDefaultMarkdownApp() {
+        Task {
+            do {
+                try await NSWorkspace.shared.setDefaultApplication(
+                    at: Bundle.main.bundleURL,
+                    toOpen: Self.markdownType
+                )
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+    #else
+
+    // MARK: - iOS: navigation stack with recents
+
+    private var mainContent: some View {
         NavigationStack(path: $path) {
             Group {
                 if store.recents.isEmpty {
@@ -24,7 +207,7 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        showImporter = true
+                        importerMode = .file
                     } label: {
                         Label("Open", systemImage: "folder")
                     }
@@ -33,34 +216,6 @@ struct HomeView: View {
             .navigationDestination(for: URL.self) { url in
                 ReaderView(fileURL: url)
             }
-        }
-        .fileImporter(
-            isPresented: $showImporter,
-            allowedContentTypes: [Self.markdownType, .plainText, .text],
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                if let url = urls.first {
-                    open(url: url)
-                }
-            case .failure(let error):
-                errorMessage = error.localizedDescription
-            }
-        }
-        .onOpenURL { url in
-            open(url: url)
-        }
-        .alert(
-            "Could not open file",
-            isPresented: Binding(
-                get: { errorMessage != nil },
-                set: { if !$0 { errorMessage = nil } }
-            )
-        ) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(errorMessage ?? "")
         }
     }
 
@@ -71,7 +226,7 @@ struct HomeView: View {
             Text("Open a Markdown file from iCloud Drive or the Files app to start reading.")
         } actions: {
             Button("Open File") {
-                showImporter = true
+                importerMode = .file
             }
             .buttonStyle(.borderedProminent)
         }
@@ -88,18 +243,9 @@ struct HomeView: View {
                             errorMessage = "The file may have been moved or deleted."
                         }
                     } label: {
-                        HStack {
-                            Image(systemName: "doc.text")
-                                .foregroundStyle(.secondary)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(file.name)
-                                    .foregroundStyle(.primary)
-                                    .lineLimit(1)
-                                Text(file.lastOpened, style: .relative)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                        Label(file.name, systemImage: "doc.text")
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
                     }
                 }
                 .onDelete { offsets in
@@ -107,15 +253,16 @@ struct HomeView: View {
                 }
             }
         }
-        #if os(iOS)
         .listStyle(.insetGrouped)
-        #else
-        .listStyle(.inset)
-        #endif
     }
+    #endif
 
     private func open(url: URL) {
         store.add(url: url)
+        #if os(macOS)
+        selectedURL = url
+        #else
         path.append(url)
+        #endif
     }
 }
