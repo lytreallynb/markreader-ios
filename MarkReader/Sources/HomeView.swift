@@ -261,6 +261,16 @@ struct HomeView: View {
         store.add(url: url)
         #if os(macOS)
         selectedURL = url
+        // Show the file's folder as the sidebar tree automatically, so the
+        // user never has to pick a folder by hand. Keep the current tree when
+        // the file already lives inside it.
+        let parent = url.deletingLastPathComponent()
+        let insideCurrentTree = treeStore.rootURL.map {
+            url.standardizedFileURL.path.hasPrefix($0.standardizedFileURL.path + "/")
+        } ?? false
+        if !insideCurrentTree {
+            treeStore.openFolder(parent)
+        }
         #else
         path.append(url)
         #endif

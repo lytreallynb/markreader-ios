@@ -1,5 +1,9 @@
 import SwiftUI
 
+#if canImport(Translation)
+import Translation
+#endif
+
 struct ReaderView: View {
     let fileURL: URL
 
@@ -16,6 +20,8 @@ struct ReaderView: View {
     @State private var noteDraft = ""
     @State private var showNoteAlert = false
     @State private var pendingNoteSelection: PendingSelection?
+    @State private var selectionTranslationText = ""
+    @State private var showSelectionTranslation = false
     @State private var renderTask: Task<Void, Never>?
     @State private var autosaveTask: Task<Void, Never>?
     @StateObject private var previewController = PreviewController()
@@ -89,6 +95,11 @@ struct ReaderView: View {
         )
         .task(id: fileURL) {
             load()
+        }
+        .onAppear {
+            previewController.onSelectionAction = { action, color, selection in
+                handleSelectionAction(action, color: color, selection: selection)
+            }
         }
         .onChange(of: text) { _, _ in
             scheduleRender()
@@ -165,6 +176,10 @@ struct ReaderView: View {
             controller: previewController
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .modifier(SelectionTranslationModifier(
+            isPresented: $showSelectionTranslation,
+            text: selectionTranslationText
+        ))
     }
 
     private var translationPane: some View {
@@ -282,6 +297,60 @@ struct ReaderView: View {
             } label: {
                 Label("Text Size", systemImage: "textformat.size")
             }
+        }
+    }
+
+    // MARK: - Floating selection toolbar
+
+    private func handleSelectionAction(
+        _ action: String, color: String?, selection: PreviewSelection
+    ) {
+        switch action {
+        case "highlight":
+            guard let color, let highlightColor = HighlightColor(rawValue: color) else { return }
+            if let updated = MarkdownHighlighter.applyToRenderedSelection(
+                source: text,
+                selectedText: selection.text,
+                sourcePos: selection.sourcePos,
+                color: highlightColor
+            ) {
+                text = updated
+            } else {
+                highlightMessage = "Could not match the selection in the source. "
+                    + "Try selecting text without inline formatting."
+            }
+        case "bold", "underline", "strikethrough":
+            guard let format = InlineFormat(rawValue: action) else { return }
+            if let updated = MarkdownHighlighter.wrapRenderedSelection(
+                source: text,
+                selectedText: selection.text,
+                sourcePos: selection.sourcePos,
+                prefix: format.prefix,
+                suffix: format.suffix
+            ) {
+                text = updated
+            } else {
+                highlightMessage = "Could not match the selection in the source. "
+                    + "Try selecting text without inline formatting."
+            }
+        case "note":
+            pendingNoteSelection = .preview(selection)
+            noteDraft = ""
+            showNoteAlert = true
+        case "translate":
+            selectionTranslationText = selection.text
+            showSelectionTranslation = true
+        case "clear":
+            guard let markText = selection.markText else { return }
+            if let updated = MarkdownHighlighter.removeHighlight(
+                source: text, markText: markText, sourcePos: selection.sourcePos
+            ) {
+                text = updated
+            } else {
+                highlightMessage = "Could not find that highlight in the source."
+            }
+        default:
+            break
         }
     }
 
@@ -486,6 +555,23 @@ struct ReaderView: View {
             loadError = error.localizedDescription
         case nil:
             loadError = "The file could not be read."
+        }
+    }
+
+    private struct SelectionTranslationModifier: ViewModifier {
+        @Binding var isPresented: Bool
+        let text: String
+
+        func body(content: Content) -> some View {
+            #if canImport(Translation)
+            if #available(iOS 17.4, macOS 14.4, *) {
+                content.translationPresentation(isPresented: $isPresented, text: text)
+            } else {
+                content
+            }
+            #else
+            content
+            #endif
         }
     }
 

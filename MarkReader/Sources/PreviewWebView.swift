@@ -19,6 +19,7 @@ struct PreviewWebView {
 
     static func makeWebView(controller: PreviewController) -> WKWebView {
         let configuration = WKWebViewConfiguration()
+        configuration.userContentController.add(controller, name: "selectionAction")
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = controller
         #if os(macOS)
@@ -41,6 +42,10 @@ struct PreviewWebView {
 /// and selection queries used by the highlighter.
 final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate {
     weak var webView: WKWebView?
+
+    /// Called when the user taps an action in the floating selection toolbar
+    /// inside the preview: (action, color, selection).
+    var onSelectionAction: ((String, String?, PreviewSelection) -> Void)?
 
     private var pageLoaded = false
     private var loadedBaseURL: URL?
@@ -225,6 +230,51 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
           padding: 0.05em 0.15em;
         }
         u { text-underline-offset: 0.2em; }
+        #seltoolbar {
+          position: fixed;
+          display: none;
+          z-index: 99;
+          align-items: center;
+          gap: 5px;
+          padding: 6px 10px;
+          border-radius: 10px;
+          background: rgba(252,252,252,0.98);
+          box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+          border: 1px solid rgba(0,0,0,0.08);
+          -webkit-user-select: none;
+          user-select: none;
+        }
+        #seltoolbar .dot {
+          width: 15px;
+          height: 15px;
+          border-radius: 50%;
+          cursor: pointer;
+          border: 1px solid rgba(0,0,0,0.18);
+        }
+        #seltoolbar button {
+          border: none;
+          background: none;
+          font-family: inherit;
+          font-size: 13px;
+          cursor: pointer;
+          padding: 2px 7px;
+          border-radius: 6px;
+          color: #1f2328;
+        }
+        #seltoolbar button:hover, #seltoolbar .dot:hover { background: rgba(0,0,0,0.08); }
+        #seltoolbar .sep { width: 1px; height: 16px; background: rgba(0,0,0,0.14); }
+        #seltoolbar button[data-action="bold"] { font-weight: 700; }
+        #seltoolbar button[data-action="underline"] { text-decoration: underline; }
+        #seltoolbar button[data-action="strikethrough"] { text-decoration: line-through; }
+        @media (prefers-color-scheme: dark) {
+          #seltoolbar {
+            background: rgba(44,44,46,0.98);
+            border-color: rgba(255,255,255,0.12);
+          }
+          #seltoolbar button { color: #e6e6e6; }
+          #seltoolbar button:hover, #seltoolbar .dot:hover { background: rgba(255,255,255,0.12); }
+          #seltoolbar .sep { background: rgba(255,255,255,0.18); }
+        }
         section.footnotes {
           margin-top: 2em;
           font-size: 0.88em;
@@ -248,6 +298,21 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
         </head>
         <body>
         <div id="content"></div>
+        <div id="seltoolbar">
+          <span class="dot" data-action="highlight" data-color="yellow" style="background:#ffec9e"></span>
+          <span class="dot" data-action="highlight" data-color="green" style="background:#c3edc0"></span>
+          <span class="dot" data-action="highlight" data-color="blue" style="background:#bcd8ff"></span>
+          <span class="dot" data-action="highlight" data-color="pink" style="background:#ffcfe1"></span>
+          <span class="dot" data-action="highlight" data-color="orange" style="background:#ffd8a8"></span>
+          <span class="sep"></span>
+          <button data-action="bold">B</button>
+          <button data-action="underline">U</button>
+          <button data-action="strikethrough">S</button>
+          <span class="sep"></span>
+          <button data-action="note">Note</button>
+          <button data-action="translate">Translate</button>
+          <button id="selclear" data-action="clear">Clear</button>
+        </div>
         <script>
         window.setDoc = function (html) {
           var y = window.scrollY;
@@ -273,12 +338,9 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
           });
           if (best) { best.scrollIntoView({ behavior: "smooth", block: "start" }); }
         };
-        window.getSelectionInfo = function () {
+        function selectionInfo() {
           var sel = window.getSelection();
-          if (!sel || sel.isCollapsed || !sel.toString()) {
-            return JSON.stringify({ ok: false });
-          }
-          var text = sel.toString();
+          if (!sel || sel.isCollapsed || !sel.toString().trim()) { return null; }
           var node = sel.anchorNode;
           if (node && node.nodeType === Node.TEXT_NODE) { node = node.parentElement; }
           var mark = null;
@@ -291,18 +353,80 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
             }
             el = el.parentElement;
           }
+          return { text: sel.toString(), pos: pos, markText: mark ? mark.textContent : null };
+        }
+        window.getSelectionInfo = function () {
+          var info = selectionInfo();
+          if (!info) { return JSON.stringify({ ok: false }); }
           return JSON.stringify({
-            ok: true,
-            text: text,
-            pos: pos,
-            markText: mark ? mark.textContent : null
+            ok: true, text: info.text, pos: info.pos, markText: info.markText
           });
         };
+
+        var seltoolbar = document.getElementById("seltoolbar");
+        var seltoolbarTimer = null;
+        seltoolbar.addEventListener("mousedown", function (e) { e.preventDefault(); });
+        seltoolbar.addEventListener("click", function (e) {
+          var target = e.target.closest("[data-action]");
+          if (!target) { return; }
+          var info = selectionInfo();
+          if (!info) { seltoolbar.style.display = "none"; return; }
+          window.webkit.messageHandlers.selectionAction.postMessage({
+            action: target.getAttribute("data-action"),
+            color: target.getAttribute("data-color"),
+            text: info.text,
+            pos: info.pos,
+            markText: info.markText
+          });
+          seltoolbar.style.display = "none";
+        });
+        function updateSelToolbar() {
+          var info = selectionInfo();
+          if (!info) { seltoolbar.style.display = "none"; return; }
+          document.getElementById("selclear").style.display = info.markText ? "" : "none";
+          var rect = window.getSelection().getRangeAt(0).getBoundingClientRect();
+          seltoolbar.style.display = "flex";
+          var w = seltoolbar.offsetWidth;
+          var h = seltoolbar.offsetHeight;
+          var left = Math.min(
+            Math.max(rect.left + rect.width / 2 - w / 2, 8),
+            window.innerWidth - w - 8
+          );
+          var top = rect.top - h - 10;
+          if (top < 8) { top = rect.bottom + 10; }
+          seltoolbar.style.left = left + "px";
+          seltoolbar.style.top = top + "px";
+        }
+        function scheduleSelToolbar() {
+          clearTimeout(seltoolbarTimer);
+          seltoolbarTimer = setTimeout(updateSelToolbar, 180);
+        }
+        document.addEventListener("selectionchange", scheduleSelToolbar);
+        window.addEventListener("scroll", scheduleSelToolbar);
         </script>
         </body>
         </html>
         """
     }()
+}
+
+extension PreviewController: WKScriptMessageHandler {
+    func userContentController(
+        _ userContentController: WKUserContentController,
+        didReceive message: WKScriptMessage
+    ) {
+        guard message.name == "selectionAction",
+              let body = message.body as? [String: Any],
+              let action = body["action"] as? String,
+              let text = body["text"] as? String
+        else { return }
+        let selection = PreviewSelection(
+            text: text,
+            sourcePos: body["pos"] as? String,
+            markText: body["markText"] as? String
+        )
+        onSelectionAction?(action, body["color"] as? String, selection)
+    }
 }
 
 #if os(macOS)
