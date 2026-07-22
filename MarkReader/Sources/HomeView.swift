@@ -8,6 +8,14 @@ struct HomeView: View {
 
     @AppStorage("sidebar.recentExpanded") private var recentExpanded = true
     @State private var importerMode: ImporterMode?
+    #if os(macOS)
+    @State private var showRenameAlert = false
+    @State private var renameTarget: URL?
+    @State private var renameText = ""
+    @State private var showNewFileAlert = false
+    @State private var newFileFolder: URL?
+    @State private var newFileName = ""
+    #endif
     // The dismiss binding clears importerMode before the completion handler
     // runs, so the completion must not read it. This copy survives dismissal.
     @State private var lastPickedMode: ImporterMode = .file
@@ -100,6 +108,16 @@ struct HomeView: View {
             store.add(url: url)
             ensureTreeShows(url)
         }
+        .alert("Rename", isPresented: $showRenameAlert) {
+            TextField("Name", text: $renameText)
+            Button("Rename") { performRename() }
+            Button("Cancel", role: .cancel) {}
+        }
+        .alert("New File", isPresented: $showNewFileAlert) {
+            TextField("File name", text: $newFileName)
+            Button("Create") { performCreateFile() }
+            Button("Cancel", role: .cancel) {}
+        }
     }
 
     /// Sidebar tree rows: folders, files, and, under the open file, its
@@ -166,6 +184,9 @@ struct HomeView: View {
             }
             .lineLimit(1)
             .selectionDisabled(true)
+            .contextMenu {
+                fileOperationMenu(for: item.url, isDirectory: true)
+            }
         case .file:
             Label {
                 Text(item.title)
@@ -175,6 +196,9 @@ struct HomeView: View {
             }
             .lineLimit(1)
             .tag(item.url)
+            .contextMenu {
+                fileOperationMenu(for: item.url, isDirectory: false)
+            }
         case .heading(let level, let line):
             Button {
                 outline.jump(toLine: line)
@@ -249,6 +273,12 @@ struct HomeView: View {
                 Menu {
                     Button("Open File") { presentImporter(.file) }
                     Button("Open Folder") { presentImporter(.folder) }
+                    Button("New File") {
+                        newFileFolder = treeStore.rootURL
+                        newFileName = "Untitled.md"
+                        showNewFileAlert = true
+                    }
+                    .disabled(treeStore.rootURL == nil)
                     Divider()
                     Button("Refresh Folder") { treeStore.refresh() }
                         .disabled(treeStore.rootURL == nil)
@@ -279,6 +309,90 @@ struct HomeView: View {
             Label("No File Selected", systemImage: "doc.text")
         } description: {
             Text("Select a file in the sidebar, or open one from Finder.")
+        }
+    }
+
+    // MARK: - File operations
+
+    @ViewBuilder
+    private func fileOperationMenu(for url: URL, isDirectory: Bool) -> some View {
+        Button("Rename") {
+            renameTarget = url
+            renameText = url.lastPathComponent
+            showRenameAlert = true
+        }
+        Button("New File \(isDirectory ? "Here" : "in Folder")") {
+            newFileFolder = isDirectory ? url : url.deletingLastPathComponent()
+            newFileName = "Untitled.md"
+            showNewFileAlert = true
+        }
+        Button("Show in Finder") {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        }
+        Divider()
+        Button("Move to Trash", role: .destructive) {
+            moveToTrash(url)
+        }
+    }
+
+    private func performRename() {
+        guard let target = renameTarget else { return }
+        var name = renameText.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty, !name.contains("/") else { return }
+
+        let isDirectory = (try? target.resourceValues(
+            forKeys: [.isDirectoryKey]
+        ))?.isDirectory ?? false
+        if !isDirectory, !name.contains("."), !target.pathExtension.isEmpty {
+            name += "." + target.pathExtension
+        }
+
+        let destination = target.deletingLastPathComponent().appendingPathComponent(name)
+        do {
+            try FileManager.default.moveItem(at: target, to: destination)
+            store.remove(path: target.path)
+            if selectedURL == target {
+                open(url: destination)
+            }
+            treeStore.refresh()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func performCreateFile() {
+        guard let folder = newFileFolder else { return }
+        var name = newFileName.trimmingCharacters(in: .whitespaces)
+        guard !name.isEmpty, !name.contains("/") else { return }
+        if !name.contains(".") {
+            name += ".md"
+        }
+
+        let destination = folder.appendingPathComponent(name)
+        guard !FileManager.default.fileExists(atPath: destination.path) else {
+            errorMessage = "A file named \(name) already exists."
+            return
+        }
+        let title = (name as NSString).deletingPathExtension
+        do {
+            try Data("# \(title)\n".utf8).write(to: destination)
+            treeStore.refresh()
+            open(url: destination)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func moveToTrash(_ url: URL) {
+        do {
+            try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+            store.remove(path: url.path)
+            if selectedURL == url {
+                selectedURL = nil
+            }
+            treeStore.refresh()
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 

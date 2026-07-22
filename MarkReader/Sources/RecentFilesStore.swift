@@ -64,6 +64,11 @@ final class RecentFilesStore: ObservableObject {
         save()
     }
 
+    func remove(path: String) {
+        recents.removeAll { $0.path == path }
+        save()
+    }
+
     func resolveURL(for file: RecentFile) -> URL? {
         var isStale = false
         guard let url = try? URL(
