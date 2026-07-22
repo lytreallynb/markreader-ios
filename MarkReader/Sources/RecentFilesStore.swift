@@ -61,7 +61,14 @@ final class RecentFilesStore: ObservableObject {
             recents[index].bookmark = fresh
             save()
         }
+        // Canonicalize only on macOS (needed so sidebar tree URLs compare
+        // equal). On iOS the security scope is tied to this exact URL object,
+        // and the app is sandboxed, so it must be returned as is.
+        #if os(macOS)
+        return url.canonicalized
+        #else
         return url
+        #endif
     }
 
     private func load() {

@@ -325,7 +325,12 @@ struct HomeView: View {
     }
     #endif
 
-    private func open(url: URL) {
+    private func open(url rawURL: URL) {
+        #if os(macOS)
+        let url = rawURL.canonicalized
+        #else
+        let url = rawURL
+        #endif
         store.add(url: url)
         #if os(macOS)
         selectedURL = url

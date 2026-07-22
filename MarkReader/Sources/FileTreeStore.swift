@@ -1,5 +1,17 @@
 import Foundation
 
+extension URL {
+    /// Resolves symlinks and firmlinks (such as the /System/Volumes/Data
+    /// prefix that bookmark resolution adds on macOS) so URLs for the same
+    /// file compare equal regardless of how they were obtained.
+    var canonicalized: URL {
+        if let path = (try? resourceValues(forKeys: [.canonicalPathKey]))?.canonicalPath {
+            return URL(fileURLWithPath: path)
+        }
+        return standardizedFileURL.resolvingSymlinksInPath()
+    }
+}
+
 /// A node in the folder tree. Folders carry children; Markdown files are leaves.
 struct FileNode: Identifiable, Hashable {
     let url: URL
@@ -33,7 +45,7 @@ final class FileTreeStore: ObservableObject {
         if url.startAccessingSecurityScopedResource() {
             accessedURL = url
         }
-        rootURL = url
+        rootURL = url.canonicalized
         if let bookmark = try? url.bookmarkData(
             options: [], includingResourceValuesForKeys: nil, relativeTo: nil
         ) {
@@ -75,7 +87,7 @@ final class FileTreeStore: ObservableObject {
         ) {
             UserDefaults.standard.set(fresh, forKey: storageKey)
         }
-        rootURL = url
+        rootURL = url.canonicalized
         refresh()
     }
 
