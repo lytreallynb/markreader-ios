@@ -224,6 +224,26 @@ struct HomeView: View {
                 }
             }
 
+            if let selectedURL,
+               !outline.headings.isEmpty,
+               !treeContains(selectedURL, in: treeStore.tree) {
+                Section("Outline") {
+                    ForEach(outline.headings) { heading in
+                        Button {
+                            outline.jump(toLine: heading.line)
+                        } label: {
+                            Text(heading.title)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .padding(.leading, CGFloat(max(0, heading.level - 1)) * 10)
+                        }
+                        .buttonStyle(.plain)
+                        .selectionDisabled(true)
+                    }
+                }
+            }
+
             if !store.recents.isEmpty {
                 Section(isExpanded: $recentExpanded) {
                     ForEach(store.recents) { file in
@@ -515,18 +535,26 @@ struct HomeView: View {
     }
 
     #if os(macOS)
-    /// Shows the file's folder as the sidebar tree automatically, so the user
-    /// never has to pick a folder by hand. Runs on every selection change
-    /// (tree, recents, picker, Finder). Keeps the current tree when the file
-    /// already lives inside it.
+    /// Loads the file's folder into the sidebar tree, but only when no folder
+    /// is open yet. Replacing an existing tree on every open made the sidebar
+    /// jump around; files outside the tree get a standalone Outline section
+    /// instead.
     private func ensureTreeShows(_ url: URL) {
-        let parent = url.deletingLastPathComponent()
-        let insideCurrentTree = treeStore.rootURL.map {
-            url.path.hasPrefix($0.path + "/")
-        } ?? false
-        if !insideCurrentTree {
-            treeStore.openFolder(parent)
+        guard treeStore.rootURL == nil else { return }
+        treeStore.openFolder(url.deletingLastPathComponent())
+    }
+
+    private func treeContains(_ url: URL, in nodes: [FileNode]) -> Bool {
+        for node in nodes {
+            if node.isDirectory {
+                if treeContains(url, in: node.children ?? []) {
+                    return true
+                }
+            } else if node.url == url {
+                return true
+            }
         }
+        return false
     }
     #endif
 }

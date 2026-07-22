@@ -28,6 +28,12 @@ final class RecentFilesStore: ObservableObject {
     }
 
     func add(url: URL) {
+        // Folders never belong in recents; they are browsed via the tree.
+        let isDirectory = (try? url.resourceValues(
+            forKeys: [.isDirectoryKey]
+        ))?.isDirectory ?? false
+        guard !isDirectory else { return }
+
         guard let bookmark = try? url.bookmarkData(
             options: [],
             includingResourceValuesForKeys: nil,
@@ -100,7 +106,19 @@ final class RecentFilesStore: ObservableObject {
         guard let data = UserDefaults.standard.data(forKey: storageKey),
               let decoded = try? JSONDecoder().decode([RecentFile].self, from: data)
         else { return }
-        recents = decoded
+        // Purge folder entries that older versions added when a picked
+        // folder was mistakenly treated as a file.
+        recents = decoded.filter { file in
+            guard let path = file.path else { return true }
+            var isDirectory: ObjCBool = false
+            guard FileManager.default.fileExists(
+                atPath: path, isDirectory: &isDirectory
+            ) else { return true }
+            return !isDirectory.boolValue
+        }
+        if recents.count != decoded.count {
+            save()
+        }
     }
 
     private func save() {
