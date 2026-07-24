@@ -30,7 +30,9 @@ struct ReaderView: View {
         case editor(NSRange)
     }
 
-    @AppStorage("reader.textSizeStep") private var textSizeStep: Int = 2
+    // 0 means "not set yet"; previewFontSize then falls back to the legacy
+    // step-based setting so existing users keep their size.
+    @AppStorage("reader.fontSize") private var storedFontSize = 0
     @AppStorage("reader.showsSource") private var showsSource = false
     @AppStorage("reader.theme") private var themeName = "default"
     @AppStorage("reader.pageWidth") private var pageWidth = 760
@@ -47,7 +49,8 @@ struct ReaderView: View {
         case translation = "Translate"
     }
 
-    private static let previewFontSizes = [13, 14, 16, 18, 21, 24]
+    private static let previewFontSizes = [10, 11, 12, 13, 14, 16, 18, 21, 24]
+    private static let legacyFontSizes = [13, 14, 16, 18, 21, 24]
 
     private var isDirty: Bool {
         guard let originalText else { return false }
@@ -67,8 +70,12 @@ struct ReaderView: View {
     }
 
     private var previewFontSize: Int {
-        let index = min(max(textSizeStep, 0), Self.previewFontSizes.count - 1)
-        return Self.previewFontSizes[index]
+        if storedFontSize > 0 {
+            return storedFontSize
+        }
+        let step = UserDefaults.standard.integer(forKey: "reader.textSizeStep")
+        let index = min(max(step, 0), Self.legacyFontSizes.count - 1)
+        return Self.legacyFontSizes[index]
     }
 
     private var isPDF: Bool {
@@ -220,7 +227,7 @@ struct ReaderView: View {
         MarkdownSourceEditor(
             text: $text,
             selection: $editorSelection,
-            fontSize: CGFloat(previewFontSize) - 2
+            fontSize: max(10, CGFloat(previewFontSize) - 2)
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -380,17 +387,23 @@ struct ReaderView: View {
             }
 
             Menu {
+                Text("Size: \(previewFontSize) pt")
+
                 Button("Smaller") {
-                    if textSizeStep > 0 { textSizeStep -= 1 }
+                    if let next = Self.previewFontSizes.last(where: { $0 < previewFontSize }) {
+                        storedFontSize = next
+                    }
                 }
                 .keyboardShortcut("-", modifiers: .command)
-                .disabled(textSizeStep == 0)
+                .disabled(previewFontSize <= Self.previewFontSizes.first ?? 10)
 
                 Button("Larger") {
-                    if textSizeStep < Self.previewFontSizes.count - 1 { textSizeStep += 1 }
+                    if let next = Self.previewFontSizes.first(where: { $0 > previewFontSize }) {
+                        storedFontSize = next
+                    }
                 }
                 .keyboardShortcut("=", modifiers: .command)
-                .disabled(textSizeStep == Self.previewFontSizes.count - 1)
+                .disabled(previewFontSize >= Self.previewFontSizes.last ?? 24)
 
                 Divider()
 
