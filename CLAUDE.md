@@ -33,7 +33,13 @@ open MarkReader.xcodeproj                  # open in Xcode for device install
 - `MarkdownSourceEditor.swift`: shared TextKit editor (`UITextView`/`NSTextView`) with source syntax coloring and a selection binding for the highlighter.
 - `TranslationPane.swift`: Apple Translation (iOS 18 / macOS 15+). Segments the document so only prose and code comments are translated: code bodies, inline code, file names, paths, URLs, link targets, and images are protected tokens that never reach the translator; each failed segment falls back to its original text. Requests are batched (32) with hard timeouts so the pane cannot hang; a Download Language Support button calls `prepareTranslation`.
 - `CodeBlockHighlighter.swift`: code coloring for the MarkdownUI-rendered translation pane.
-- `RecentFilesStore.swift`: recent files as security-scoped bookmarks in `UserDefaults`, refreshes stale bookmarks on resolve.
+- `RecentFilesStore.swift`: recent files as security-scoped bookmarks in `UserDefaults`, refreshes stale bookmarks on resolve; refuses and purges directories.
+- `FolderScanner.swift`: shared off-main-thread scans powering Cmd+Shift+F content search, the Cmd+Shift+H highlights digest, and sidebar backlinks.
+- `CommandPalette.swift` (macOS): Cmd+P fuzzy open and content search palette; `HighlightsDigestView`.
+- `PDFViewer.swift`: PDFKit pane for .pdf files (viewer only, markdown toolbar hidden).
+- `AIAssist.swift`: on-device FoundationModels explain/summarize with `InsightCard`; gated on Apple Intelligence availability.
+- `PresentationView.swift`: slides split at H1/H2, rendered via the preview pipeline.
+- Preview extras: per-file scroll memory (ratio in UserDefaults), themes and page width via CSS variables, bundled MathJax (math masked around cmark) and mermaid, `[[wiki links]]` via the `inkdown-wiki:` scheme resolved in `HomeView`.
 
 ## Deploy notes
 
