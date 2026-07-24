@@ -14,6 +14,7 @@
 		0B75851716883F2854868780 /* CodeBlockHighlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92ACE17498EA92219B57DC0D /* CodeBlockHighlighter.swift */; };
 		0C0E95774F2D98BA0533E3B1 /* mermaid.min.js in Resources */ = {isa = PBXBuildFile; fileRef = A5597F90E45255BA6DEF132E /* mermaid.min.js */; };
 		0F6322A5E55ACF14077F2B31 /* TranslationPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = E45335F110315EAA8494DAE5 /* TranslationPane.swift */; };
+		10FF860EEED90865D4112D76 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F15EE68730A885ED4FDBB6 /* HelpView.swift */; };
 		2341D3E7DF5878F93B6F19D7 /* PDFViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 184D6B4577C1C1CA425022A2 /* PDFViewer.swift */; };
 		23EAF6CB77FFEDD3537DD13A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0DA572244E12F88672A02BCB /* Assets.xcassets */; };
 		2D0A390DA6929BFF9D91E6CD /* AIAssist.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4636786F3EC4609B4BF17E7 /* AIAssist.swift */; };
@@ -29,6 +30,7 @@
 		58070C862D5E8C56D4635B5D /* PresentationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28119558913094B5DFEE4677 /* PresentationView.swift */; };
 		5A9FAA2E27D8B40D62F67AE4 /* ReaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 387597E07084C4FFF538EE94 /* ReaderView.swift */; };
 		5CFACBA32ACD6B209A2389BD /* hljs-github.min.css in Resources */ = {isa = PBXBuildFile; fileRef = 05489F33655418A580A99659 /* hljs-github.min.css */; };
+		6549799C242488B7BEBF312A /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F15EE68730A885ED4FDBB6 /* HelpView.swift */; };
 		65F725EB26DA4621A67943A8 /* hljs-github-dark.min.css in Resources */ = {isa = PBXBuildFile; fileRef = CA9FF74D636D9F7C1860CB07 /* hljs-github-dark.min.css */; };
 		674EEDEC3378EA6806B5DB52 /* AIAssist.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4636786F3EC4609B4BF17E7 /* AIAssist.swift */; };
 		69129F10427CB83162E0E4C1 /* cmark-gfm-extensions in Frameworks */ = {isa = PBXBuildFile; productRef = A5456583CA84BA06B91BB6BB /* cmark-gfm-extensions */; };
@@ -73,6 +75,7 @@
 		533393123F21603F74CFB0DC /* MarkReaderMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MarkReaderMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		63434CA69039CF07DBBA19C4 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		6835E15148DCB3B0AE04EAB4 /* MarkReaderApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkReaderApp.swift; sourceTree = "<group>"; };
+		69F15EE68730A885ED4FDBB6 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		78552F75125B93DBC0B99DC3 /* FileTreeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileTreeStore.swift; sourceTree = "<group>"; };
 		7EA827818F043E6B2E930A85 /* RecentFilesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFilesStore.swift; sourceTree = "<group>"; };
 		80007869E243E3C25846B53A /* highlight.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = highlight.min.js; sourceTree = "<group>"; };
@@ -152,6 +155,7 @@
 				F0227438F24144E9CC680691 /* CommandPalette.swift */,
 				78552F75125B93DBC0B99DC3 /* FileTreeStore.swift */,
 				F7CC371CDE70F507DCBA3150 /* FolderScanner.swift */,
+				69F15EE68730A885ED4FDBB6 /* HelpView.swift */,
 				63434CA69039CF07DBBA19C4 /* HomeView.swift */,
 				8CF4E23F41C3037E137BD063 /* MarkdownHighlighter.swift */,
 				A244C2851661400A1E1F14DD /* MarkdownHTMLRenderer.swift */,
@@ -303,6 +307,7 @@
 				FB6D4D79FD2A97720F5A9E8D /* CommandPalette.swift in Sources */,
 				DBC6620ED80729A8D7B387D4 /* FileTreeStore.swift in Sources */,
 				09A256E1A1A4FB76291054F8 /* FolderScanner.swift in Sources */,
+				6549799C242488B7BEBF312A /* HelpView.swift in Sources */,
 				869D8833EB01E202CDFAD256 /* HomeView.swift in Sources */,
 				055BD519E6237FDED89F44B3 /* MarkReaderApp.swift in Sources */,
 				96F72354A1B659A1D1227DC0 /* MarkdownHTMLRenderer.swift in Sources */,
@@ -327,6 +332,7 @@
 				DDE76279757793ABC3862FA3 /* CommandPalette.swift in Sources */,
 				B491AEF48CA5817437844CA5 /* FileTreeStore.swift in Sources */,
 				A4E4BE282F4C0E96217B5F86 /* FolderScanner.swift in Sources */,
+				10FF860EEED90865D4112D76 /* HelpView.swift in Sources */,
 				A0EE6EE1E7B9E773C37507C7 /* HomeView.swift in Sources */,
 				7F09D37A3F3347425FB9C927 /* MarkReaderApp.swift in Sources */,
 				37B9C8192975510E6CD6805E /* MarkdownHTMLRenderer.swift in Sources */,

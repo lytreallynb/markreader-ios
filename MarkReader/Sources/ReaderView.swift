@@ -217,8 +217,12 @@ struct ReaderView: View {
     }
 
     private var editorPane: some View {
-        MarkdownSourceEditor(text: $text, selection: $editorSelection)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        MarkdownSourceEditor(
+            text: $text,
+            selection: $editorSelection,
+            fontSize: CGFloat(previewFontSize) - 2
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var previewPane: some View {

@@ -116,6 +116,8 @@ struct HomeView: View {
 
     @AppStorage("sidebar.recentExpanded") private var recentExpanded = true
     @AppStorage("sidebar.homeExpanded") private var homeExpanded = false
+    @AppStorage("help.shownOnce") private var helpShownOnce = false
+    @State private var showHelp = false
     @State private var importerMode: ImporterMode?
     #if os(macOS)
     @State private var showPalette = false
@@ -185,6 +187,13 @@ struct HomeView: View {
                 outline.wikiResolver = { name in
                     resolveWikiLink(name)
                 }
+                if !helpShownOnce {
+                    helpShownOnce = true
+                    showHelp = true
+                }
+            }
+            .sheet(isPresented: $showHelp) {
+                HelpView { showHelp = false }
             }
             #if os(macOS)
             .onReceive(OpenFileRouter.shared.$pendingURL) { url in
@@ -505,6 +514,7 @@ struct HomeView: View {
                     .disabled(treeStore.tree.isEmpty)
                     Divider()
                     Button("Set as Default Markdown App") { setAsDefaultMarkdownApp() }
+                    Button("Help") { showHelp = true }
                 } label: {
                     Label("Actions", systemImage: "ellipsis.circle")
                 }
@@ -671,11 +681,16 @@ struct HomeView: View {
             }
             .navigationTitle("MarkReader")
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
+                ToolbarItemGroup(placement: .primaryAction) {
                     Button {
                         presentImporter(.file)
                     } label: {
                         Label("Open", systemImage: "folder")
+                    }
+                    Button {
+                        showHelp = true
+                    } label: {
+                        Label("Help", systemImage: "questionmark.circle")
                     }
                 }
             }

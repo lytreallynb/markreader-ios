@@ -13,17 +13,24 @@ import AppKit
 struct MarkdownSourceEditor: View {
     @Binding var text: String
     @Binding var selection: NSRange
+    var fontSize: CGFloat = 13
 
     var body: some View {
-        MarkdownSourceEditorRepresentable(text: $text, selection: $selection)
+        MarkdownSourceEditorRepresentable(
+            text: $text, selection: $selection, fontSize: fontSize
+        )
     }
 }
 
 private enum MarkdownSyntaxColoring {
     #if os(iOS)
-    static let baseFont = UIFont.monospacedSystemFont(ofSize: UIFont.labelFontSize, weight: .regular)
+    static func baseFont(size: CGFloat) -> UIFont {
+        UIFont.monospacedSystemFont(ofSize: size, weight: .regular)
+    }
     #elseif os(macOS)
-    static let baseFont = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+    static func baseFont(size: CGFloat) -> NSFont {
+        NSFont.monospacedSystemFont(ofSize: size, weight: .regular)
+    }
     #endif
 
     /// Above this many UTF-16 units, regex colorization is skipped entirely:
@@ -60,30 +67,40 @@ private enum MarkdownSyntaxColoring {
     )
 
     #if os(iOS)
-    static func apply(to storage: NSTextStorage, baseColor: UIColor) {
+    static func apply(to storage: NSTextStorage, baseColor: UIColor, size: CGFloat) {
+        let font = baseFont(size: size)
         let full = NSRange(location: 0, length: storage.length)
         storage.beginEditing()
         storage.setAttributes(
-            [.font: baseFont, .foregroundColor: baseColor],
+            [.font: font, .foregroundColor: baseColor],
             range: full
         )
-        colorize(storage: storage, fullRange: full)
+        colorize(storage: storage, fullRange: full, baseFont: font)
         storage.endEditing()
     }
     #elseif os(macOS)
-    static func apply(to storage: NSTextStorage, baseColor: NSColor) {
+    static func apply(to storage: NSTextStorage, baseColor: NSColor, size: CGFloat) {
+        let font = baseFont(size: size)
         let full = NSRange(location: 0, length: storage.length)
         storage.beginEditing()
         storage.setAttributes(
-            [.font: baseFont, .foregroundColor: baseColor],
+            [.font: font, .foregroundColor: baseColor],
             range: full
         )
-        colorize(storage: storage, fullRange: full)
+        colorize(storage: storage, fullRange: full, baseFont: font)
         storage.endEditing()
     }
     #endif
 
-    private static func colorize(storage: NSTextStorage, fullRange: NSRange) {
+    #if os(iOS)
+    private typealias PlatformFont = UIFont
+    #elseif os(macOS)
+    private typealias PlatformFont = NSFont
+    #endif
+
+    private static func colorize(
+        storage: NSTextStorage, fullRange: NSRange, baseFont: PlatformFont
+    ) {
         guard fullRange.length <= colorizeCharacterLimit else { return }
         fencedCodeBlockRegex.enumerateMatches(in: storage.string, range: fullRange) { match, _, _ in
             guard let range = match?.range else { return }
@@ -182,11 +199,12 @@ private enum PlatformSemanticColor {
 private struct MarkdownSourceEditorRepresentable: UIViewRepresentable {
     @Binding var text: String
     @Binding var selection: NSRange
+    var fontSize: CGFloat
 
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
         textView.backgroundColor = .clear
-        textView.font = MarkdownSyntaxColoring.baseFont
+        textView.font = MarkdownSyntaxColoring.baseFont(size: fontSize)
         textView.textColor = .label
         textView.autocapitalizationType = .sentences
         textView.autocorrectionType = .default
@@ -196,15 +214,21 @@ private struct MarkdownSourceEditorRepresentable: UIViewRepresentable {
         textView.textContainerInset = UIEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
         textView.delegate = context.coordinator
         textView.text = text
-        MarkdownSyntaxColoring.apply(to: textView.textStorage, baseColor: .label)
+        context.coordinator.fontSize = fontSize
+        MarkdownSyntaxColoring.apply(to: textView.textStorage, baseColor: .label, size: fontSize)
         return textView
     }
 
     func updateUIView(_ uiView: UITextView, context: Context) {
-        guard uiView.text != text else { return }
+        context.coordinator.fontSize = fontSize
+        let sizeChanged = abs((uiView.font?.pointSize ?? 0) - fontSize) > 0.1
+        guard uiView.text != text || sizeChanged else { return }
         let selectedRange = uiView.selectedRange
-        uiView.text = text
-        MarkdownSyntaxColoring.apply(to: uiView.textStorage, baseColor: .label)
+        if uiView.text != text {
+            uiView.text = text
+        }
+        uiView.font = MarkdownSyntaxColoring.baseFont(size: fontSize)
+        MarkdownSyntaxColoring.apply(to: uiView.textStorage, baseColor: .label, size: fontSize)
         uiView.selectedRange = clampedRange(selectedRange, forLength: (uiView.text as NSString).length)
     }
 
@@ -222,6 +246,7 @@ private struct MarkdownSourceEditorRepresentable: UIViewRepresentable {
         private let text: Binding<String>
         private let selection: Binding<NSRange>
         private var isApplyingProgrammaticUpdate = false
+        var fontSize: CGFloat = 13
 
         init(text: Binding<String>, selection: Binding<NSRange>) {
             self.text = text
@@ -243,10 +268,13 @@ private struct MarkdownSourceEditorRepresentable: UIViewRepresentable {
         /// changes do not re-enter textViewDidChange.
         private func scheduleColorize(for textView: UITextView) {
             pendingColorize?.cancel()
+            let size = fontSize
             let item = DispatchWorkItem { [weak textView] in
                 guard let textView else { return }
                 let selectedRange = textView.selectedRange
-                MarkdownSyntaxColoring.apply(to: textView.textStorage, baseColor: .label)
+                MarkdownSyntaxColoring.apply(
+                    to: textView.textStorage, baseColor: .label, size: size
+                )
                 textView.selectedRange = selectedRange
             }
             pendingColorize = item
@@ -266,6 +294,7 @@ private struct MarkdownSourceEditorRepresentable: UIViewRepresentable {
 private struct MarkdownSourceEditorRepresentable: NSViewRepresentable {
     @Binding var text: String
     @Binding var selection: NSRange
+    var fontSize: CGFloat
 
     func makeNSView(context: Context) -> NSScrollView {
         let textView = NSTextView()
@@ -274,7 +303,7 @@ private struct MarkdownSourceEditorRepresentable: NSViewRepresentable {
         textView.isEditable = true
         textView.isSelectable = true
         textView.allowsUndo = true
-        textView.font = MarkdownSyntaxColoring.baseFont
+        textView.font = MarkdownSyntaxColoring.baseFont(size: fontSize)
         textView.textColor = .labelColor
         textView.drawsBackground = false
         textView.isAutomaticQuoteSubstitutionEnabled = false
@@ -282,8 +311,9 @@ private struct MarkdownSourceEditorRepresentable: NSViewRepresentable {
         textView.isAutomaticSpellingCorrectionEnabled = false
         textView.textContainerInset = NSSize(width: 12, height: 12)
         textView.string = text
+        context.coordinator.fontSize = fontSize
         if let storage = textView.textStorage {
-            MarkdownSyntaxColoring.apply(to: storage, baseColor: .labelColor)
+            MarkdownSyntaxColoring.apply(to: storage, baseColor: .labelColor, size: fontSize)
         }
 
         let scrollView = NSScrollView()
@@ -296,11 +326,16 @@ private struct MarkdownSourceEditorRepresentable: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let textView = nsView.documentView as? NSTextView else { return }
-        guard textView.string != text else { return }
+        context.coordinator.fontSize = fontSize
+        let sizeChanged = abs((textView.font?.pointSize ?? 0) - fontSize) > 0.1
+        guard textView.string != text || sizeChanged else { return }
         let selectedRanges = textView.selectedRanges
-        textView.string = text
+        if textView.string != text {
+            textView.string = text
+        }
+        textView.font = MarkdownSyntaxColoring.baseFont(size: fontSize)
         if let storage = textView.textStorage {
-            MarkdownSyntaxColoring.apply(to: storage, baseColor: .labelColor)
+            MarkdownSyntaxColoring.apply(to: storage, baseColor: .labelColor, size: fontSize)
         }
         textView.selectedRanges = selectedRanges
     }
@@ -313,6 +348,7 @@ private struct MarkdownSourceEditorRepresentable: NSViewRepresentable {
         private let text: Binding<String>
         private let selection: Binding<NSRange>
         private var isApplyingProgrammaticUpdate = false
+        var fontSize: CGFloat = 13
 
         init(text: Binding<String>, selection: Binding<NSRange>) {
             self.text = text
@@ -335,10 +371,13 @@ private struct MarkdownSourceEditorRepresentable: NSViewRepresentable {
         /// changes do not re-enter textDidChange.
         private func scheduleColorize(for textView: NSTextView) {
             pendingColorize?.cancel()
+            let size = fontSize
             let item = DispatchWorkItem { [weak textView] in
                 guard let textView, let storage = textView.textStorage else { return }
                 let selectedRanges = textView.selectedRanges
-                MarkdownSyntaxColoring.apply(to: storage, baseColor: .labelColor)
+                MarkdownSyntaxColoring.apply(
+                    to: storage, baseColor: .labelColor, size: size
+                )
                 textView.selectedRanges = selectedRanges
             }
             pendingColorize = item
