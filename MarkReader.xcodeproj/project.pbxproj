@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		03E9B80CB00683674C1291BA /* MarkdownHighlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CF4E23F41C3037E137BD063 /* MarkdownHighlighter.swift */; };
 		055BD519E6237FDED89F44B3 /* MarkReaderApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6835E15148DCB3B0AE04EAB4 /* MarkReaderApp.swift */; };
+		09A256E1A1A4FB76291054F8 /* FolderScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7CC371CDE70F507DCBA3150 /* FolderScanner.swift */; };
 		0A59815184F049A25E9BA8AA /* MarkdownOutline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47C1AAEBCB97450DDD3E8AF9 /* MarkdownOutline.swift */; };
 		0B75851716883F2854868780 /* CodeBlockHighlighter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92ACE17498EA92219B57DC0D /* CodeBlockHighlighter.swift */; };
 		0C0E95774F2D98BA0533E3B1 /* mermaid.min.js in Resources */ = {isa = PBXBuildFile; fileRef = A5597F90E45255BA6DEF132E /* mermaid.min.js */; };
@@ -37,6 +38,7 @@
 		96F72354A1B659A1D1227DC0 /* MarkdownHTMLRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A244C2851661400A1E1F14DD /* MarkdownHTMLRenderer.swift */; };
 		9F0390971BFD1E04D4E159E2 /* MarkdownSourceEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BA84E5E8885D73D794B188E /* MarkdownSourceEditor.swift */; };
 		A0EE6EE1E7B9E773C37507C7 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63434CA69039CF07DBBA19C4 /* HomeView.swift */; };
+		A4E4BE282F4C0E96217B5F86 /* FolderScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7CC371CDE70F507DCBA3150 /* FolderScanner.swift */; };
 		AE7A02B833FE156F0FB6AD3B /* highlight.min.js in Resources */ = {isa = PBXBuildFile; fileRef = 80007869E243E3C25846B53A /* highlight.min.js */; };
 		B1BA9F34321DCF6E5BBF8277 /* hljs-github.min.css in Resources */ = {isa = PBXBuildFile; fileRef = 05489F33655418A580A99659 /* hljs-github.min.css */; };
 		B491AEF48CA5817437844CA5 /* FileTreeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78552F75125B93DBC0B99DC3 /* FileTreeStore.swift */; };
@@ -47,9 +49,11 @@
 		DB74C8E748F62BFA57B6378F /* mathjax-tex-svg.js in Resources */ = {isa = PBXBuildFile; fileRef = D65EFBCC1E67DF872DEAB16C /* mathjax-tex-svg.js */; };
 		DBC6620ED80729A8D7B387D4 /* FileTreeStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78552F75125B93DBC0B99DC3 /* FileTreeStore.swift */; };
 		DD11F3B6D95EE78D6E3C0ED1 /* RecentFilesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EA827818F043E6B2E930A85 /* RecentFilesStore.swift */; };
+		DDE76279757793ABC3862FA3 /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0227438F24144E9CC680691 /* CommandPalette.swift */; };
 		DEF10AD6242B6A391B324114 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0DA572244E12F88672A02BCB /* Assets.xcassets */; };
 		EFD9B24308F4B7AD64EB12A1 /* PDFViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 184D6B4577C1C1CA425022A2 /* PDFViewer.swift */; };
 		FAF8D207DC3D99E957252262 /* highlight.min.js in Resources */ = {isa = PBXBuildFile; fileRef = 80007869E243E3C25846B53A /* highlight.min.js */; };
+		FB6D4D79FD2A97720F5A9E8D /* CommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0227438F24144E9CC680691 /* CommandPalette.swift */; };
 		FC65DB8772AF3D201C9813BF /* cmark-gfm in Frameworks */ = {isa = PBXBuildFile; productRef = 50820F1908A6ABF2A207DC7F /* cmark-gfm */; };
 /* End PBXBuildFile section */
 
@@ -75,6 +79,8 @@
 		D65EFBCC1E67DF872DEAB16C /* mathjax-tex-svg.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "mathjax-tex-svg.js"; sourceTree = "<group>"; };
 		E45335F110315EAA8494DAE5 /* TranslationPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationPane.swift; sourceTree = "<group>"; };
 		E63198CDFD074A7A33C7832D /* PreviewWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewWebView.swift; sourceTree = "<group>"; };
+		F0227438F24144E9CC680691 /* CommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandPalette.swift; sourceTree = "<group>"; };
+		F7CC371CDE70F507DCBA3150 /* FolderScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderScanner.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -136,7 +142,9 @@
 			isa = PBXGroup;
 			children = (
 				92ACE17498EA92219B57DC0D /* CodeBlockHighlighter.swift */,
+				F0227438F24144E9CC680691 /* CommandPalette.swift */,
 				78552F75125B93DBC0B99DC3 /* FileTreeStore.swift */,
+				F7CC371CDE70F507DCBA3150 /* FolderScanner.swift */,
 				63434CA69039CF07DBBA19C4 /* HomeView.swift */,
 				8CF4E23F41C3037E137BD063 /* MarkdownHighlighter.swift */,
 				A244C2851661400A1E1F14DD /* MarkdownHTMLRenderer.swift */,
@@ -283,7 +291,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				0B75851716883F2854868780 /* CodeBlockHighlighter.swift in Sources */,
+				FB6D4D79FD2A97720F5A9E8D /* CommandPalette.swift in Sources */,
 				DBC6620ED80729A8D7B387D4 /* FileTreeStore.swift in Sources */,
+				09A256E1A1A4FB76291054F8 /* FolderScanner.swift in Sources */,
 				869D8833EB01E202CDFAD256 /* HomeView.swift in Sources */,
 				055BD519E6237FDED89F44B3 /* MarkReaderApp.swift in Sources */,
 				96F72354A1B659A1D1227DC0 /* MarkdownHTMLRenderer.swift in Sources */,
@@ -303,7 +313,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				828019BAAF5E3996B81E8159 /* CodeBlockHighlighter.swift in Sources */,
+				DDE76279757793ABC3862FA3 /* CommandPalette.swift in Sources */,
 				B491AEF48CA5817437844CA5 /* FileTreeStore.swift in Sources */,
+				A4E4BE282F4C0E96217B5F86 /* FolderScanner.swift in Sources */,
 				A0EE6EE1E7B9E773C37507C7 /* HomeView.swift in Sources */,
 				7F09D37A3F3347425FB9C927 /* MarkReaderApp.swift in Sources */,
 				37B9C8192975510E6CD6805E /* MarkdownHTMLRenderer.swift in Sources */,

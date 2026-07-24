@@ -118,6 +118,10 @@ struct HomeView: View {
     @AppStorage("sidebar.homeExpanded") private var homeExpanded = false
     @State private var importerMode: ImporterMode?
     #if os(macOS)
+    @State private var showPalette = false
+    @State private var paletteMode: CommandPaletteView.Mode = .files
+    @State private var showDigest = false
+    @State private var backlinks: [ScanHit] = []
     @State private var showRenameAlert = false
     @State private var renameTarget: URL?
     @State private var renameText = ""
@@ -210,17 +214,61 @@ struct HomeView: View {
             sidebar
                 .navigationSplitViewColumnWidth(min: 200, ideal: 240)
         } detail: {
-            if let selectedURL {
+            if showDigest {
+                HighlightsDigestView(
+                    files: FolderScanner.markdownFiles(in: treeStore.tree)
+                ) { url, line in
+                    showDigest = false
+                    open(url: url)
+                    jumpAfterOpen(line: line)
+                }
+            } else if let selectedURL {
                 ReaderView(fileURL: selectedURL)
                     .id(selectedURL)
             } else {
                 emptyDetail
             }
         }
+        .overlay {
+            if showPalette {
+                ZStack(alignment: .top) {
+                    Color.black.opacity(0.12)
+                        .ignoresSafeArea()
+                        .onTapGesture { showPalette = false }
+                    CommandPaletteView(
+                        mode: paletteMode,
+                        tree: treeStore.tree,
+                        onOpen: { url, line in
+                            showPalette = false
+                            showDigest = false
+                            open(url: url)
+                            if let line {
+                                jumpAfterOpen(line: line)
+                            }
+                        },
+                        onClose: { showPalette = false }
+                    )
+                    .padding(.top, 90)
+                }
+            }
+        }
+        .background {
+            Group {
+                Button("") { presentPalette(.files) }
+                    .keyboardShortcut("p", modifiers: .command)
+                Button("") { presentPalette(.content) }
+                    .keyboardShortcut("f", modifiers: [.command, .shift])
+                Button("") { showDigest = true; selectedURL = nil }
+                    .keyboardShortcut("h", modifiers: [.command, .shift])
+            }
+            .hidden()
+        }
         .onChange(of: selectedURL) { _, url in
             guard let url else { return }
+            showDigest = false
             store.add(url: url)
             ensureTreeShows(url)
+            refreshBacklinks(for: url)
         }
         .alert("Rename", isPresented: $showRenameAlert) {
             TextField("Name", text: $renameText)
@@ -365,6 +413,26 @@ struct HomeView: View {
                 }
             }
 
+            if !backlinks.isEmpty {
+                Section("Backlinks") {
+                    ForEach(backlinks) { hit in
+                        Button {
+                            open(url: hit.url)
+                        } label: {
+                            Label {
+                                Text(hit.fileTitle)
+                            } icon: {
+                                Image(systemName: "arrow.uturn.backward")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .lineLimit(1)
+                        }
+                        .buttonStyle(.plain)
+                        .selectionDisabled(true)
+                    }
+                }
+            }
+
             if !store.recents.isEmpty {
                 Section(isExpanded: $recentExpanded) {
                     ForEach(store.recents) { file in
@@ -427,6 +495,15 @@ struct HomeView: View {
                     Button("Close Folder") { treeStore.closeFolder() }
                         .disabled(treeStore.rootURL == nil)
                     Divider()
+                    Button("Quick Open") { presentPalette(.files) }
+                    Button("Search in Folder") { presentPalette(.content) }
+                        .disabled(treeStore.tree.isEmpty)
+                    Button("All Highlights") {
+                        selectedURL = nil
+                        showDigest = true
+                    }
+                    .disabled(treeStore.tree.isEmpty)
+                    Divider()
                     Button("Set as Default Markdown App") { setAsDefaultMarkdownApp() }
                 } label: {
                     Label("Actions", systemImage: "ellipsis.circle")
@@ -451,6 +528,35 @@ struct HomeView: View {
             Label("No File Selected", systemImage: "doc.text")
         } description: {
             Text("Select a file in the sidebar, or open one from Finder.")
+        }
+    }
+
+    private func presentPalette(_ mode: CommandPaletteView.Mode) {
+        paletteMode = mode
+        showPalette = true
+    }
+
+    /// Opens happen through selection change and the reader view needs a
+    /// moment to install its jump handler before we can scroll to a line.
+    private func jumpAfterOpen(line: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            outline.jump(toLine: line)
+        }
+    }
+
+    private func refreshBacklinks(for url: URL) {
+        backlinks = []
+        guard url.pathExtension.lowercased() != "pdf" else { return }
+        let name = url.deletingPathExtension().lastPathComponent
+        let files = FolderScanner.markdownFiles(in: treeStore.tree)
+        guard !files.isEmpty else { return }
+        Task {
+            let hits = await Task.detached(priority: .utility) {
+                FolderScanner.backlinks(to: name, in: files)
+            }.value
+            if selectedURL == url {
+                backlinks = hits
+            }
         }
     }
 
