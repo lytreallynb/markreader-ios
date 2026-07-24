@@ -398,6 +398,7 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
           <span class="sep"></span>
           <button data-action="note">Note</button>
           <button data-action="translate">Translate</button>
+          <button data-action="explain">Explain</button>
           <button id="selclear" data-action="clear">Clear</button>
         </div>
         <script>

@@ -18,6 +18,9 @@ struct ReaderView: View {
     @State private var showNoteAlert = false
     @State private var pendingNoteSelection: PendingSelection?
     @State private var selectionTranslationText: String?
+    @State private var insightTitle = ""
+    @State private var insightPrompt: String?
+    @State private var showPresentation = false
     @State private var renderTask: Task<Void, Never>?
     @State private var autosaveTask: Task<Void, Never>?
     @StateObject private var previewController = PreviewController()
@@ -93,6 +96,18 @@ struct ReaderView: View {
     }
 
     var body: some View {
+        ZStack {
+            mainReader
+            if showPresentation {
+                PresentationView(markdown: text) {
+                    showPresentation = false
+                }
+                .transition(.opacity)
+            }
+        }
+    }
+
+    private var mainReader: some View {
         Group {
             if isPDF, let pdfData {
                 PDFViewer(data: pdfData)
@@ -216,7 +231,12 @@ struct ReaderView: View {
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay(alignment: .bottom) {
-            if let selectionTranslationText {
+            if let insightPrompt {
+                InsightCard(title: insightTitle, prompt: insightPrompt) {
+                    self.insightPrompt = nil
+                }
+                .padding(16)
+            } else if let selectionTranslationText {
                 SelectionTranslationCard(
                     sourceText: selectionTranslationText,
                     documentText: text,
@@ -337,6 +357,24 @@ struct ReaderView: View {
                 Label("Translate", systemImage: "translate")
             }
 
+            if AIAssist.isAvailable {
+                Menu {
+                    Button("Summarize Document") {
+                        selectionTranslationText = nil
+                        insightTitle = "Summary"
+                        insightPrompt = AIAssist.summarizePrompt(document: text)
+                    }
+                } label: {
+                    Label("Assistant", systemImage: "sparkles")
+                }
+            }
+
+            Button {
+                showPresentation = true
+            } label: {
+                Label("Present", systemImage: "play.rectangle")
+            }
+
             Menu {
                 Button("Smaller") {
                     if textSizeStep > 0 { textSizeStep -= 1 }
@@ -408,7 +446,16 @@ struct ReaderView: View {
             noteDraft = ""
             showNoteAlert = true
         case "translate":
+            insightPrompt = nil
             selectionTranslationText = selection.text
+        case "explain":
+            guard AIAssist.isAvailable else {
+                highlightMessage = "On-device intelligence is not available on this system."
+                return
+            }
+            selectionTranslationText = nil
+            insightTitle = "Explain"
+            insightPrompt = AIAssist.explainPrompt(passage: selection.text)
         case "clear":
             guard let markText = selection.markText else { return }
             if let updated = MarkdownHighlighter.removeHighlight(
