@@ -6,9 +6,14 @@ import Foundation
 final class OutlineContext: ObservableObject {
     @Published var headings: [OutlineHeading] = []
     var jumpHandler: ((Int) -> Void)?
+    var wikiResolver: ((String) -> Void)?
 
     func jump(toLine line: Int) {
         jumpHandler?(line)
+    }
+
+    func openWiki(_ name: String) {
+        wikiResolver?(name)
     }
 }
 

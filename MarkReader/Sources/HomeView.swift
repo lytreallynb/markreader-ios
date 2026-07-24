@@ -177,6 +177,11 @@ struct HomeView: View {
             .onOpenURL { url in
                 open(url: url)
             }
+            .onAppear {
+                outline.wikiResolver = { name in
+                    resolveWikiLink(name)
+                }
+            }
             #if os(macOS)
             .onReceive(OpenFileRouter.shared.$pendingURL) { url in
                 guard let url else { return }
@@ -621,6 +626,39 @@ struct HomeView: View {
             }
         }
         .listStyle(.insetGrouped)
+    }
+    #endif
+
+    private func resolveWikiLink(_ name: String) {
+        let lower = name.lowercased()
+        #if os(macOS)
+        if let url = findFile(named: lower, in: treeStore.tree) {
+            open(url: url)
+            return
+        }
+        #endif
+        if let file = store.recents.first(where: {
+            ($0.name as NSString).deletingPathExtension.lowercased() == lower
+        }), let url = store.resolveURL(for: file) {
+            open(url: url)
+            return
+        }
+        errorMessage = "Note \(name) was not found in the open folder."
+    }
+
+    #if os(macOS)
+    private func findFile(named lowercasedName: String, in nodes: [FileNode]) -> URL? {
+        for node in nodes {
+            if node.isDirectory {
+                if let hit = findFile(named: lowercasedName, in: node.children ?? []) {
+                    return hit
+                }
+            } else if node.url.deletingPathExtension().lastPathComponent.lowercased()
+                == lowercasedName {
+                return node.url
+            }
+        }
+        return nil
     }
     #endif
 

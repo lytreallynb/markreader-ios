@@ -8,18 +8,30 @@ struct PreviewSelection {
     var markText: String?
 }
 
+/// Visual parameters of the rendered page. Empty strings mean "use the
+/// adaptive default" for that property.
+struct PreviewAppearance: Equatable {
+    var fontSize: Int = 16
+    var fontFamily: String = ""
+    var pageBackground: String = ""
+    var pageForeground: String = ""
+    var maxWidth: Int = 760
+}
+
 /// Rendered Markdown preview backed by WKWebView.
 /// The page is fully self contained (inlined CSS and highlight.js), and the
 /// base URL is the document's folder so relative images resolve.
 struct PreviewWebView {
     @Binding var htmlBody: String
     var baseURL: URL?
-    var fontSize: Int
+    var appearance: PreviewAppearance
+    var documentKey: String?
     var controller: PreviewController
 
     static func makeWebView(controller: PreviewController) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.add(controller, name: "selectionAction")
+        configuration.userContentController.add(controller, name: "scrollChanged")
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = controller
         #if os(macOS)
@@ -34,7 +46,8 @@ struct PreviewWebView {
     }
 
     func update(_ webView: WKWebView) {
-        controller.setDocument(body: htmlBody, baseURL: baseURL, fontSize: fontSize)
+        controller.documentKey = documentKey
+        controller.setDocument(body: htmlBody, baseURL: baseURL, appearance: appearance)
     }
 }
 
@@ -47,12 +60,30 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
     /// inside the preview: (action, color, selection).
     var onSelectionAction: ((String, String?, PreviewSelection) -> Void)?
 
+    /// Called when the user clicks a [[wiki link]]; the argument is the
+    /// target note name.
+    var onWikiLink: ((String) -> Void)?
+
+    /// Identifies the open document for per-file scroll position memory.
+    var documentKey: String? {
+        didSet {
+            if documentKey != oldValue {
+                needsScrollRestore = true
+            }
+        }
+    }
+
     private var pageLoaded = false
     private var loadedBaseURL: URL?
     private var pendingBody: String?
-    private var pendingFontSize: Int = 16
+    private var pendingAppearance = PreviewAppearance()
     private var pendingScrollLine: Int?
+    private var needsScrollRestore = true
     private var lastBody: String?
+
+    private func scrollDefaultsKey(_ key: String) -> String {
+        "scroll.\(key)"
+    }
 
     /// Called whenever SwiftUI creates a fresh WKWebView (for example when a
     /// compact layout switches panes). Resets load state so the template is
@@ -62,40 +93,56 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
         pageLoaded = false
         loadedBaseURL = nil
         lastBody = nil
+        needsScrollRestore = true
     }
 
-    func setDocument(body: String, baseURL: URL?, fontSize: Int) {
+    func setDocument(body: String, baseURL: URL?, appearance: PreviewAppearance) {
         guard let webView else { return }
 
         if !pageLoaded || loadedBaseURL != baseURL {
             pageLoaded = false
             loadedBaseURL = baseURL
             pendingBody = body
-            pendingFontSize = fontSize
+            pendingAppearance = appearance
             lastBody = body
+            needsScrollRestore = true
             webView.loadHTMLString(Self.pageTemplate, baseURL: baseURL)
             return
         }
 
-        applyFontSize(fontSize)
+        applyAppearance(appearance)
         guard body != lastBody else { return }
         lastBody = body
         apply(body: body)
+        restoreScrollIfNeeded()
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         pageLoaded = true
-        applyFontSize(pendingFontSize)
+        applyAppearance(pendingAppearance)
         if let body = pendingBody {
             pendingBody = nil
             apply(body: body)
         }
+        restoreScrollIfNeeded()
         if let line = pendingScrollLine {
             pendingScrollLine = nil
             webView.evaluateJavaScript(
                 "setTimeout(function () { window.scrollToSourceLine(\(line)); }, 120)"
             )
         }
+    }
+
+    private func restoreScrollIfNeeded() {
+        guard needsScrollRestore, let documentKey else { return }
+        needsScrollRestore = false
+        let saved = UserDefaults.standard.double(
+            forKey: scrollDefaultsKey(documentKey)
+        )
+        guard saved > 0.001 else { return }
+        webView?.evaluateJavaScript(
+            "setTimeout(function () { window.restoreScroll(\(saved)); }, 250)"
+        )
     }
 
     func webView(
@@ -106,6 +153,14 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
         if navigationAction.navigationType == .linkActivated,
            let url = navigationAction.request.url {
             decisionHandler(.cancel)
+            if url.scheme == "inkdown-wiki" {
+                let name = String(url.absoluteString.dropFirst("inkdown-wiki:".count))
+                    .removingPercentEncoding ?? ""
+                if !name.isEmpty {
+                    onWikiLink?(name)
+                }
+                return
+            }
             #if os(macOS)
             NSWorkspace.shared.open(url)
             #else
@@ -147,9 +202,19 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
         webView?.evaluateJavaScript("window.setDoc(\(encoded)[0])")
     }
 
-    private func applyFontSize(_ size: Int) {
-        pendingFontSize = size
-        webView?.evaluateJavaScript("window.setFontSize(\(size))")
+    private func applyAppearance(_ appearance: PreviewAppearance) {
+        pendingAppearance = appearance
+        let dict: [String: Any] = [
+            "size": appearance.fontSize,
+            "family": appearance.fontFamily,
+            "bg": appearance.pageBackground,
+            "fg": appearance.pageForeground,
+            "width": appearance.maxWidth,
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: dict),
+              let json = String(data: data, encoding: .utf8)
+        else { return }
+        webView?.evaluateJavaScript("window.setAppearance(\(json))")
     }
 
     private static let pageTemplate: String = {
@@ -166,6 +231,14 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
             contentsOf: bundle.url(forResource: "hljs-github-dark.min", withExtension: "css")!,
             encoding: .utf8
         )) ?? ""
+        let mathJS = (try? String(
+            contentsOf: bundle.url(forResource: "mathjax-tex-svg", withExtension: "js")!,
+            encoding: .utf8
+        )) ?? ""
+        let mermaidJS = (try? String(
+            contentsOf: bundle.url(forResource: "mermaid.min", withExtension: "js")!,
+            encoding: .utf8
+        )) ?? ""
 
         return """
         <!DOCTYPE html>
@@ -179,15 +252,17 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
         body {
           margin: 0 auto;
           padding: 24px 28px 60px;
-          max-width: 760px;
-          font-family: -apple-system, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", sans-serif;
+          max-width: var(--max-width, 760px);
+          font-family: var(--body-font, -apple-system, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", sans-serif);
           font-size: var(--base-size);
           line-height: 1.65;
-          color: #1f2328;
-          background: transparent;
+          color: var(--page-fg, #1f2328);
+          background: var(--page-bg, transparent);
           -webkit-text-size-adjust: 100%;
           word-wrap: break-word;
         }
+        a.wiki { border-bottom: 1px dashed rgba(9,105,218,0.5); }
+        div.mermaid { text-align: center; margin: 0 0 0.9em; }
         h1, h2, h3, h4, h5, h6 { line-height: 1.3; margin: 1.3em 0 0.55em; font-weight: 650; }
         h1 { font-size: 1.75em; padding-bottom: 0.25em; border-bottom: 1px solid rgba(140,140,140,0.28); }
         h2 { font-size: 1.4em; padding-bottom: 0.2em; border-bottom: 1px solid rgba(140,140,140,0.2); }
@@ -285,7 +360,7 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
         \(lightCSS)
         .hljs { background: transparent; padding: 0; }
         @media (prefers-color-scheme: dark) {
-          body { color: #e6e6e6; }
+          body { color: var(--page-fg, #e6e6e6); }
           a { color: #4da3ff; }
           blockquote { color: #a0a8b0; }
           code { background: rgba(200,200,200,0.14); }
@@ -295,6 +370,18 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
         }
         </style>
         <script>\(js)</script>
+        <script>
+        window.MathJax = {
+          tex: {
+            inlineMath: [["$", "$"], ["\\\\(", "\\\\)"]],
+            displayMath: [["$$", "$$"]]
+          },
+          svg: { fontCache: "global" },
+          startup: { typeset: false }
+        };
+        </script>
+        <script>\(mathJS)</script>
+        <script>\(mermaidJS)</script>
         </head>
         <body>
         <div id="content"></div>
@@ -314,17 +401,61 @@ final class PreviewController: NSObject, ObservableObject, WKNavigationDelegate 
           <button id="selclear" data-action="clear">Clear</button>
         </div>
         <script>
+        try {
+          mermaid.initialize({
+            startOnLoad: false,
+            theme: window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark" : "default"
+          });
+        } catch (e) {}
         window.setDoc = function (html) {
           var y = window.scrollY;
           document.getElementById("content").innerHTML = html;
           document.querySelectorAll("pre code").forEach(function (el) {
             try { hljs.highlightElement(el); } catch (e) {}
           });
+          document.querySelectorAll("pre code.language-mermaid").forEach(function (el) {
+            var div = document.createElement("div");
+            div.className = "mermaid";
+            div.textContent = el.textContent;
+            el.parentElement.replaceWith(div);
+          });
+          try { mermaid.run({ querySelector: ".mermaid" }); } catch (e) {}
+          if (window.MathJax && MathJax.typesetPromise) {
+            try {
+              MathJax.typesetClear();
+              MathJax.typesetPromise([document.getElementById("content")])
+                .catch(function () {});
+            } catch (e) {}
+          }
           window.scrollTo(0, y);
         };
-        window.setFontSize = function (px) {
-          document.documentElement.style.setProperty("--base-size", px + "px");
+        window.setAppearance = function (a) {
+          var s = document.documentElement.style;
+          s.setProperty("--base-size", a.size + "px");
+          s.setProperty("--max-width", a.width + "px");
+          if (a.family) { s.setProperty("--body-font", a.family); }
+          else { s.removeProperty("--body-font"); }
+          if (a.bg) { s.setProperty("--page-bg", a.bg); }
+          else { s.removeProperty("--page-bg"); }
+          if (a.fg) { s.setProperty("--page-fg", a.fg); }
+          else { s.removeProperty("--page-fg"); }
         };
+        window.restoreScroll = function (ratio) {
+          var h = document.body.scrollHeight - window.innerHeight;
+          if (h > 0) { window.scrollTo(0, ratio * h); }
+        };
+        var scrollReportTimer = null;
+        window.addEventListener("scroll", function () {
+          clearTimeout(scrollReportTimer);
+          scrollReportTimer = setTimeout(function () {
+            var h = document.body.scrollHeight - window.innerHeight;
+            var ratio = h > 0 ? window.scrollY / h : 0;
+            try {
+              window.webkit.messageHandlers.scrollChanged.postMessage(ratio);
+            } catch (e) {}
+          }, 250);
+        });
         window.scrollToSourceLine = function (line) {
           var els = document.querySelectorAll("[data-sourcepos]");
           var best = null;
@@ -415,6 +546,11 @@ extension PreviewController: WKScriptMessageHandler {
         _ userContentController: WKUserContentController,
         didReceive message: WKScriptMessage
     ) {
+        if message.name == "scrollChanged" {
+            guard let ratio = message.body as? Double, let documentKey else { return }
+            UserDefaults.standard.set(ratio, forKey: scrollDefaultsKey(documentKey))
+            return
+        }
         guard message.name == "selectionAction",
               let body = message.body as? [String: Any],
               let action = body["action"] as? String,

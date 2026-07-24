@@ -29,6 +29,8 @@ struct ReaderView: View {
 
     @AppStorage("reader.textSizeStep") private var textSizeStep: Int = 2
     @AppStorage("reader.showsSource") private var showsSource = false
+    @AppStorage("reader.theme") private var themeName = "default"
+    @AppStorage("reader.pageWidth") private var pageWidth = 760
 
     @EnvironmentObject private var outline: OutlineContext
 
@@ -70,6 +72,26 @@ struct ReaderView: View {
         fileURL.pathExtension.lowercased() == "pdf"
     }
 
+    private static let serifFamily =
+        "Georgia, 'Palatino', 'Songti SC', 'Noto Serif CJK SC', serif"
+
+    private var previewAppearance: PreviewAppearance {
+        var appearance = PreviewAppearance(
+            fontSize: previewFontSize, maxWidth: pageWidth
+        )
+        switch themeName {
+        case "serif":
+            appearance.fontFamily = Self.serifFamily
+        case "sepia":
+            appearance.fontFamily = Self.serifFamily
+            appearance.pageBackground = "#f6efdf"
+            appearance.pageForeground = "#3d3427"
+        default:
+            break
+        }
+        return appearance
+    }
+
     var body: some View {
         Group {
             if isPDF, let pdfData {
@@ -104,6 +126,9 @@ struct ReaderView: View {
         .onAppear {
             previewController.onSelectionAction = { action, color, selection in
                 handleSelectionAction(action, color: color, selection: selection)
+            }
+            previewController.onWikiLink = { name in
+                outline.openWiki(name)
             }
             outline.jumpHandler = { line in
                 if !showsSideBySide && mode == .write {
@@ -185,7 +210,8 @@ struct ReaderView: View {
         PreviewWebView(
             htmlBody: $htmlBody,
             baseURL: fileURL.deletingLastPathComponent(),
-            fontSize: previewFontSize,
+            appearance: previewAppearance,
+            documentKey: fileURL.path,
             controller: previewController
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -323,8 +349,22 @@ struct ReaderView: View {
                 }
                 .keyboardShortcut("=", modifiers: .command)
                 .disabled(textSizeStep == Self.previewFontSizes.count - 1)
+
+                Divider()
+
+                Picker("Theme", selection: $themeName) {
+                    Text("Default").tag("default")
+                    Text("Serif").tag("serif")
+                    Text("Sepia").tag("sepia")
+                }
+
+                Picker("Width", selection: $pageWidth) {
+                    Text("Narrow").tag(620)
+                    Text("Normal").tag(760)
+                    Text("Wide").tag(920)
+                }
             } label: {
-                Label("Text Size", systemImage: "textformat.size")
+                Label("Appearance", systemImage: "textformat.size")
             }
             }
         }
