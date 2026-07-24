@@ -62,9 +62,21 @@ struct HelpView: View {
                 }
                 .padding(16)
             }
+
+            Divider()
+
+            Button {
+                onClose()
+            } label: {
+                Text("Get Started")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .padding(12)
         }
         #if os(macOS)
-        .frame(width: 560, height: 520)
+        .frame(width: 560, height: 560)
         #endif
     }
 

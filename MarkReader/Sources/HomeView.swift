@@ -116,6 +116,7 @@ struct HomeView: View {
 
     @AppStorage("sidebar.recentExpanded") private var recentExpanded = true
     @AppStorage("sidebar.homeExpanded") private var homeExpanded = false
+    @AppStorage("sidebar.folderExpanded") private var folderExpanded = true
     @AppStorage("help.shownOnce") private var helpShownOnce = false
     @State private var showHelp = false
     @State private var importerMode: ImporterMode?
@@ -395,10 +396,12 @@ struct HomeView: View {
             }
 
             if !treeStore.tree.isEmpty {
-                Section(treeStore.rootURL?.lastPathComponent ?? "Folder") {
+                Section(isExpanded: $folderExpanded) {
                     OutlineGroup(sidebarItems(from: treeStore.tree), children: \.children) { item in
                         sidebarRow(for: item)
                     }
+                } header: {
+                    Text(treeStore.rootURL?.lastPathComponent ?? "Folder")
                 }
             }
 
@@ -444,7 +447,9 @@ struct HomeView: View {
 
             if !store.recents.isEmpty {
                 Section(isExpanded: $recentExpanded) {
-                    ForEach(store.recents) { file in
+                    let shown = Array(store.recents.prefix(10))
+                    let ambiguous = Self.ambiguousNames(in: shown)
+                    ForEach(shown) { file in
                         Button {
                             if let url = store.resolveURL(for: file) {
                                 open(url: url)
@@ -456,15 +461,17 @@ struct HomeView: View {
                                 FileIconView(url: URL(
                                     fileURLWithPath: file.path ?? file.name
                                 ))
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text((file.name as NSString).deletingPathExtension)
+                                Text((file.name as NSString).deletingPathExtension)
+                                    .lineLimit(1)
+                                Spacer(minLength: 8)
+                                // Folder shown only when two recents share a
+                                // name; keeps rows to a single clean line.
+                                if ambiguous.contains(file.name.lowercased()),
+                                   let parent = file.parentFolderName {
+                                    Text(parent)
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
                                         .lineLimit(1)
-                                    if let parent = file.parentFolderName {
-                                        Text(parent)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(1)
-                                    }
                                 }
                             }
                         }
@@ -539,6 +546,18 @@ struct HomeView: View {
         } description: {
             Text("Select a file in the sidebar, or open one from Finder.")
         }
+    }
+
+    private static func ambiguousNames(in files: [RecentFile]) -> Set<String> {
+        var seen: Set<String> = []
+        var duplicated: Set<String> = []
+        for file in files {
+            let key = file.name.lowercased()
+            if !seen.insert(key).inserted {
+                duplicated.insert(key)
+            }
+        }
+        return duplicated
     }
 
     private func presentPalette(_ mode: CommandPaletteView.Mode) {
