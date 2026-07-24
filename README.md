@@ -66,7 +66,17 @@ Most Markdown apps are either heavyweight editors or read-only previewers. Inkdo
 
 ![Math and diagrams](docs/math-diagrams.png)
 
-## Install
+## Windows and Linux
+
+A desktop port lives in [`desktop/`](desktop/), built with Tauri 2 on the system webview, so it stays just as small. It shares the same rendering pipeline (MathJax, mermaid, highlight.js, wiki links) and the annotation loop: highlights, formatting, and footnote notes written back into the file, plus quick open, folder search, themes, and reading-position memory. Windows (`.msi`), Linux (`.deb` / `.AppImage`), and macOS builds are produced by CI on every `desktop-v*` tag; grab them from [Releases](../../releases).
+
+```bash
+cd desktop
+npm install
+npm run dev     # requires Rust
+```
+
+## Install (macOS / iOS native app)
 
 **Download**: a signed DMG is on its way; for now, build from source.
 

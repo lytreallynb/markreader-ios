@@ -65,7 +65,17 @@
 
 ![公式与图表](docs/math-diagrams.png)
 
-## 安装
+## Windows 与 Linux
+
+桌面移植版位于 [`desktop/`](desktop/)，基于 Tauri 2 与系统自带 WebView 构建，同样保持轻量。它复用同一套渲染管线（MathJax、mermaid、highlight.js、双链），标注闭环一致：高亮、格式、脚注笔记写回文件，另有快速打开、全文搜索、主题与阅读位置记忆。每次打 `desktop-v*` 标签，CI 会自动产出 Windows（`.msi`）、Linux（`.deb` / `.AppImage`）与 macOS 构建，见 [Releases](../../releases)。
+
+```bash
+cd desktop
+npm install
+npm run dev     # 需要 Rust
+```
+
+## 安装（macOS / iOS 原生版）
 
 **下载**：签名公证的 DMG 即将提供；目前请从源码构建。
 

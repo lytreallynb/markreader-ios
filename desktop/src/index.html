@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inkdown</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="vendor/hljs-github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="vendor/hljs-github-dark.min.css" media="(prefers-color-scheme: dark)">
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [["$", "$"], ["\\(", "\\)"]],
+    displayMath: [["$$", "$$"]]
+  },
+  svg: { fontCache: "global" },
+  startup: { typeset: false }
+};
+</script>
+<script src="vendor/markdown-it.min.js"></script>
+<script src="vendor/markdown-it-footnote.min.js"></script>
+<script src="vendor/markdown-it-mark.min.js"></script>
+<script src="vendor/markdown-it-task-lists.min.js"></script>
+<script src="vendor/highlight.min.js"></script>
+<script src="vendor/mathjax-tex-svg.js"></script>
+<script src="vendor/mermaid.min.js"></script>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div id="sidebar-header">
+      <button id="open-folder" title="Open folder">Open Folder</button>
+      <button id="open-help" title="Help">?</button>
+    </div>
+    <div id="tree"></div>
+    <div id="recents-wrap">
+      <div class="section-title">Recent</div>
+      <div id="recents"></div>
+    </div>
+  </aside>
+  <main id="main">
+    <div id="toolbar">
+      <span id="doc-title">Inkdown</span>
+      <span class="toolbar-spacer"></span>
+      <button id="toggle-editor" title="Toggle source (Ctrl/Cmd+E)">&lt;/&gt;</button>
+      <select id="theme-select" title="Theme">
+        <option value="default">Default</option>
+        <option value="serif">Serif</option>
+        <option value="sepia">Sepia</option>
+      </select>
+      <button id="size-minus" title="Smaller text">A-</button>
+      <button id="size-plus" title="Larger text">A+</button>
+    </div>
+    <div id="panes">
+      <textarea id="editor" spellcheck="false" class="hidden"></textarea>
+      <div id="content-scroll">
+        <div id="content"><div id="empty">Open a folder or a Markdown file to start reading.</div></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="seltoolbar" class="hidden">
+  <span class="dot" data-action="highlight" data-color="#ffec9e" style="background:#ffec9e"></span>
+  <span class="dot" data-action="highlight" data-color="#c3edc0" style="background:#c3edc0"></span>
+  <span class="dot" data-action="highlight" data-color="#bcd8ff" style="background:#bcd8ff"></span>
+  <span class="dot" data-action="highlight" data-color="#ffcfe1" style="background:#ffcfe1"></span>
+  <span class="dot" data-action="highlight" data-color="#ffd8a8" style="background:#ffd8a8"></span>
+  <span class="sep"></span>
+  <button data-action="bold">B</button>
+  <button data-action="underline">U</button>
+  <button data-action="strikethrough">S</button>
+  <span class="sep"></span>
+  <button data-action="note">Note</button>
+  <button id="selclear" data-action="clear">Clear</button>
+</div>
+
+<div id="palette-overlay" class="hidden">
+  <div id="palette">
+    <input id="palette-input" placeholder="Type a file name" autocomplete="off">
+    <div id="palette-results"></div>
+  </div>
+</div>
+
+<div id="help-overlay" class="hidden">
+  <div id="help">
+    <h2>Inkdown Desktop</h2>
+    <p>Open a folder to browse its Markdown files. Select text in the page to highlight, format, or attach a footnote note; everything is written back into the .md file.</p>
+    <table>
+      <tr><td>Ctrl/Cmd+P</td><td>Quick open by file name</td></tr>
+      <tr><td>Ctrl/Cmd+Shift+F</td><td>Search text in folder</td></tr>
+      <tr><td>Ctrl/Cmd+E</td><td>Toggle source editor</td></tr>
+      <tr><td>Ctrl/Cmd+S</td><td>Save now (autosave is on)</td></tr>
+    </table>
+    <p>TeX math, mermaid diagrams, [[wiki links]] and code highlighting all render offline.</p>
+    <button id="help-close">Got it</button>
+  </div>
+</div>
+
+<script src="main.js"></script>
+</body>
+</html>
