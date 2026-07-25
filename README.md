@@ -50,7 +50,7 @@ Most Markdown apps are either heavyweight editors or read-only previewers. Inkdo
 | --- | --- | --- |
 | Windows | [Setup .exe](../../releases/latest) · [.msi](../../releases/latest) | SmartScreen: More info, then Run anyway |
 | Linux | [.deb](../../releases/latest) · [.rpm](../../releases/latest) · [.AppImage](../../releases/latest) | AppImage: `chmod +x` first |
-| macOS (native) | Signed DMG coming to Releases | The full experience: translation, AI, PDF, presentation |
+| macOS (native) | [Inkdown-1.0.dmg](../../releases/tag/v1.0.0) | Signed and notarized; drag to Applications and open |
 | iOS | Build from source | App Store planned |
 
 ## Features in detail

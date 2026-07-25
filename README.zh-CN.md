@@ -50,7 +50,7 @@
 | --- | --- | --- |
 | Windows | [安装器 .exe](../../releases/latest) · [.msi](../../releases/latest) | SmartScreen 提示时：更多信息 → 仍要运行 |
 | Linux | [.deb](../../releases/latest) · [.rpm](../../releases/latest) · [.AppImage](../../releases/latest) | AppImage 需先 `chmod +x` |
-| macOS（原生版） | 签名公证 DMG 即将上架 Releases | 完整体验：翻译、AI、PDF、演示模式 |
+| macOS（原生版） | [Inkdown-1.0.dmg](../../releases/tag/v1.0.0) | 已签名公证，拖进应用程序直接打开 |
 | iOS | 从源码构建 | 计划上架 App Store |
 
 ## 功能细览
