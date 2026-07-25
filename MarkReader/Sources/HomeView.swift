@@ -182,6 +182,15 @@ struct HomeView: View {
                 }
             }
             .onOpenURL { url in
+                // inkdown://open?path=/... lets Shortcuts and automation open
+                // a specific file; anything else is a document URL.
+                if url.scheme == "inkdown" {
+                    if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                       let path = components.queryItems?.first(where: { $0.name == "path" })?.value {
+                        open(url: URL(fileURLWithPath: path))
+                    }
+                    return
+                }
                 open(url: url)
             }
             .onAppear {
@@ -687,85 +696,122 @@ struct HomeView: View {
     }
     #else
 
-    // MARK: - iOS: navigation stack with recents
+    // MARK: - iOS: navigation stack with folder tree and recents
 
     private var mainContent: some View {
         NavigationStack(path: $path) {
-            Group {
-                if store.recents.isEmpty {
-                    emptyState
-                } else {
-                    recentsList
+            List {
+                if !treeStore.tree.isEmpty {
+                    Section(folderSectionTitle) {
+                        OutlineGroup(treeStore.tree, children: \.children) { node in
+                            if node.isDirectory {
+                                Label {
+                                    Text(node.name)
+                                } icon: {
+                                    Image(systemName: "folder.fill")
+                                        .foregroundStyle(.blue)
+                                }
+                                .lineLimit(1)
+                            } else {
+                                Button {
+                                    open(url: node.url)
+                                } label: {
+                                    Label {
+                                        Text(node.url.deletingPathExtension().lastPathComponent)
+                                            .foregroundStyle(.primary)
+                                    } icon: {
+                                        FileIconView(url: node.url)
+                                    }
+                                    .lineLimit(1)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if !store.recents.isEmpty {
+                    Section("Recent") {
+                        ForEach(store.recents) { file in
+                            Button {
+                                if let url = store.resolveURL(for: file) {
+                                    open(url: url)
+                                } else {
+                                    errorMessage = "The file may have been moved or deleted."
+                                }
+                            } label: {
+                                Label {
+                                    Text((file.name as NSString).deletingPathExtension)
+                                        .foregroundStyle(.primary)
+                                } icon: {
+                                    FileIconView(url: URL(
+                                        fileURLWithPath: file.path ?? file.name
+                                    ))
+                                }
+                                .lineLimit(1)
+                            }
+                        }
+                        .onDelete { offsets in
+                            store.remove(at: offsets)
+                        }
+                    }
+                }
+
+                if treeStore.tree.isEmpty && store.recents.isEmpty {
+                    ContentUnavailableView {
+                        Label("No Files Yet", systemImage: "doc.text")
+                    } description: {
+                        Text("Open a file or folder from iCloud Drive, or drop Markdown files into the Inkdown folder in the Files app.")
+                    } actions: {
+                        Button("Open File") {
+                            presentImporter(.file)
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 }
             }
-            .navigationTitle("MarkReader")
+            .listStyle(.insetGrouped)
+            .navigationTitle("Inkdown")
             .toolbar {
-                ToolbarItemGroup(placement: .primaryAction) {
-                    Button {
-                        presentImporter(.file)
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Button("Open File") { presentImporter(.file) }
+                        Button("Open Folder") { presentImporter(.folder) }
+                        Button("Show My Files") { openDocumentsFolder() }
+                        Divider()
+                        Button("Help") { showHelp = true }
                     } label: {
-                        Label("Open", systemImage: "folder")
-                    }
-                    Button {
-                        showHelp = true
-                    } label: {
-                        Label("Help", systemImage: "questionmark.circle")
+                        Label("Actions", systemImage: "ellipsis.circle")
                     }
                 }
             }
             .navigationDestination(for: URL.self) { url in
                 ReaderView(fileURL: url)
             }
-        }
-    }
-
-    private var emptyState: some View {
-        ContentUnavailableView {
-            Label("No Files Yet", systemImage: "doc.text")
-        } description: {
-            Text("Open a Markdown file from iCloud Drive or the Files app to start reading.")
-        } actions: {
-            Button("Open File") {
-                presentImporter(.file)
-            }
-            .buttonStyle(.borderedProminent)
-        }
-    }
-
-    private var recentsList: some View {
-        List {
-            Section("Recent") {
-                ForEach(store.recents) { file in
-                    Button {
-                        if let url = store.resolveURL(for: file) {
-                            open(url: url)
-                        } else {
-                            errorMessage = "The file may have been moved or deleted."
-                        }
-                    } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: "doc.text.fill")
-                                .foregroundStyle(.teal)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(file.name)
-                                    .foregroundStyle(.primary)
-                                    .lineLimit(1)
-                                if let parent = file.parentFolderName {
-                                    Text(parent)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-                            }
-                        }
-                    }
+            .onAppear {
+                if treeStore.rootURL == nil {
+                    openDocumentsFolder()
                 }
-                .onDelete { offsets in
-                    store.remove(at: offsets)
+                // Automation hook for screenshots and UI tests.
+                if let auto = ProcessInfo.processInfo.environment["INKDOWN_AUTO_OPEN"],
+                   path.isEmpty {
+                    open(url: URL(fileURLWithPath: auto))
                 }
             }
         }
-        .listStyle(.insetGrouped)
+    }
+
+    private var folderSectionTitle: String {
+        let name = treeStore.rootURL?.lastPathComponent ?? "Folder"
+        return name == "Documents" ? "My Files" : name
+    }
+
+    /// The app's own Documents folder, visible in the Files app thanks to
+    /// UIFileSharingEnabled, so files dropped there are always readable.
+    private func openDocumentsFolder() {
+        guard let documents = FileManager.default.urls(
+            for: .documentDirectory, in: .userDomainMask
+        ).first else { return }
+        treeStore.openFolder(documents)
     }
     #endif
 
@@ -823,7 +869,10 @@ struct HomeView: View {
         ensureTreeShows(url)
         selectedURL = url
         #else
-        guard !isDirectory else { return }
+        if isDirectory {
+            treeStore.openFolder(rawURL)
+            return
+        }
         store.add(url: rawURL)
         path.append(rawURL)
         #endif

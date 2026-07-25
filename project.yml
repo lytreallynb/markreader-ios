@@ -34,6 +34,11 @@ targets:
         CFBundleDisplayName: Inkdown
         UILaunchScreen: {}
         LSSupportsOpeningDocumentsInPlace: true
+        UIFileSharingEnabled: true
+        CFBundleURLTypes:
+          - CFBundleURLName: com.yutonglv.inkdown
+            CFBundleURLSchemes:
+              - inkdown
         CFBundleDocumentTypes:
           - CFBundleTypeName: Markdown Document
             CFBundleTypeRole: Editor
