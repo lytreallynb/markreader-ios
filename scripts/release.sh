@@ -28,6 +28,7 @@ if [ -n "$IDENTITY" ]; then
         -destination 'platform=macOS,arch=arm64' -configuration Release \
         CODE_SIGN_STYLE=Manual \
         CODE_SIGN_IDENTITY="$IDENTITY" \
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
         OTHER_CODE_SIGN_FLAGS="--timestamp" \
         clean build | tail -2
 else
@@ -54,7 +55,7 @@ rm -rf "$STAGE"
 
 if [ -n "$IDENTITY" ]; then
     codesign --force --sign "$IDENTITY" --timestamp "$DMG"
-    if security find-generic-password -s "com.apple.gke.notary.tool" >/dev/null 2>&1; then
+    if xcrun notarytool history --keychain-profile inkdown >/dev/null 2>&1; then
         echo "== Notarizing (this waits for Apple) =="
         xcrun notarytool submit "$DMG" --keychain-profile inkdown --wait
         xcrun stapler staple "$DMG"
